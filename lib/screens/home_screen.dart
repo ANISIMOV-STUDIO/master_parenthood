@@ -390,11 +390,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               onTap: () async {
                 Navigator.of(context).pop();
+
                 if (kIsWeb) {
-        await mock_firebase.MockFirebaseService.signOut();
-      } else {
-        await platform_firebase.PlatformFirebaseService.signOut();
-      }
+                  await mock_firebase.MockFirebaseService.signOut();
+                } else {
+                  await platform_firebase.PlatformFirebaseService.signOut();
+                }
+
+                // Обновляем состояние авторизации
+                if (context.mounted) {
+                  Provider.of<AuthProvider>(context, listen: false).setAuthenticated(false);
+                }
               },
             ),
 

@@ -1,5 +1,4 @@
 // lib/services/mock_firebase_service.dart
-import 'package:firebase_auth/firebase_auth.dart';
 
 class MockFirebaseService {
   static bool _isAuthenticated = false;
@@ -18,16 +17,13 @@ class MockFirebaseService {
   }) async {
     // Имитация задержки сети
     await Future.delayed(const Duration(seconds: 1));
-    
+
     if (email == 'test@example.com' && password == 'password') {
       _isAuthenticated = true;
       _currentUserEmail = email;
       _currentUserName = 'Test User';
     } else {
-      throw FirebaseAuthException(
-        code: 'user-not-found',
-        message: 'Неверный email или пароль',
-      );
+      throw Exception('Неверный email или пароль');
     }
   }
 
@@ -37,7 +33,7 @@ class MockFirebaseService {
     required String parentName,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
-    
+
     _isAuthenticated = true;
     _currentUserEmail = email;
     _currentUserName = parentName;
@@ -62,13 +58,4 @@ class MockFirebaseService {
     // Имитация сохранения в Firestore
     await Future.delayed(const Duration(milliseconds: 300));
   }
-
-  // Создаем мок-пользователя для совместимости с Firebase Auth
-  static User? get currentUser {
-    if (!_isAuthenticated) return null;
-    
-    // Возвращаем null для совместимости с Firebase Auth
-    // В реальном приложении здесь был бы объект User
-    return null;
-  }
-} 
+}

@@ -1,10 +1,13 @@
 // lib/screens/auth_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
 
-import '../services/mock_firebase_service.dart' as firebase_service;
-
+import '../services/mock_firebase_service.dart' as mock_firebase;
+import '../services/platform_firebase_service.dart' as platform_firebase;
+import '../main.dart' show AuthProvider;
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -59,17 +62,39 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     setState(() => _isLoading = true);
 
     try {
-      if (_isLogin) {
-        await firebase_service.MockFirebaseService.signInWithEmail(
-          email: email,
-          password: password,
-        );
+      if (kIsWeb) {
+        // Используем мок-сервис для Web
+        if (_isLogin) {
+          await mock_firebase.MockFirebaseService.signInWithEmail(
+            email: email,
+            password: password,
+          );
+        } else {
+          await mock_firebase.MockFirebaseService.registerWithEmail(
+            email: email,
+            password: password,
+            parentName: name,
+          );
+        }
       } else {
-        await firebase_service.MockFirebaseService.registerWithEmail(
-          email: email,
-          password: password,
-          parentName: name,
-        );
+        // Используем реальный Firebase для мобильных платформ
+        if (_isLogin) {
+          await platform_firebase.PlatformFirebaseService.signInWithEmail(
+            email: email,
+            password: password,
+          );
+        } else {
+          await platform_firebase.PlatformFirebaseService.registerWithEmail(
+            email: email,
+            password: password,
+            parentName: name,
+          );
+        }
+      }
+
+      // Обновляем состояние авторизации
+      if (mounted) {
+        Provider.of<AuthProvider>(context, listen: false).setAuthenticated(true);
       }
     } catch (e) {
       if (mounted) {
@@ -258,7 +283,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                                   }
 
                                   try {
-                                    // await firebase_service.MockFirebaseService.resetPassword(email);
+                                    // Функция сброса пароля (заглушка для мок-сервиса)
                                     if (mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -299,8 +324,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                  color: Colors.white,
                                   strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
                               )
                                   : Text(
