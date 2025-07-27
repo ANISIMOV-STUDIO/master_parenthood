@@ -18,8 +18,6 @@ import 'screens/auth_screen.dart' as auth;
 import 'l10n/app_localizations.dart';
 
 // Сервисы
-import 'services/mock_firebase_service.dart' as mock_firebase;
-import 'services/platform_firebase_service.dart' as platform_firebase;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
