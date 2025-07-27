@@ -1,13 +1,11 @@
 // lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/locale_provider.dart';
 import '../services/ai_service.dart';
-import '../services/mock_firebase_service.dart' as mock_firebase;
-import '../services/platform_firebase_service.dart' as platform_firebase;
+import '../services/firebase_service.dart';
 import '../main.dart'; // Для ThemeProvider
 
 class HomeScreen extends StatefulWidget {
@@ -19,6 +17,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _backgroundController;
+  UserProfile? _userProfile;
+  List<ChildProfile> _children = [];
 
   @override
   void initState() {
@@ -27,6 +27,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       duration: const Duration(seconds: 10),
       vsync: this,
     )..repeat();
+
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final profile = await FirebaseService.getUserProfile();
+    if (mounted) {
+      setState(() {
+        _userProfile = profile;
+      });
+    }
   }
 
   @override
@@ -175,8 +186,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                // Статистика
-                _buildStatsBar(context),
+                // Статистика детей
+                StreamBuilder<List<ChildProfile>>(
+                  stream: FirebaseService.getChildrenStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                      _children = snapshot.data!;
+                      return _buildChildrenStatsBar(context, snapshot.data!);
+                    }
+                    return _buildAddChildPrompt(context);
+                  },
+                ),
               ],
             ),
           ),
@@ -216,10 +236,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Text(
-                    '${loc.level} 7 • 2750 XP',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  if (_userProfile != null)
+                    Text(
+                      '${loc.level} ${_userProfile!.level} • ${_userProfile!.xp} XP',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                 ],
               ),
             ],
@@ -241,7 +262,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     ).animate().fadeIn(duration: 600.ms);
   }
 
-  Widget _buildStatsBar(BuildContext context) {
+  Widget _buildChildrenStatsBar(BuildContext context, List<ChildProfile> children) {
+    final child = children.first; // TODO: Добавить выбор активного ребенка
+
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(16),
@@ -256,18 +279,55 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Column(
         children: [
-          _StatItem(value: '89', unit: 'см', color: Colors.purple),
-          _StatItem(value: '12.5', unit: 'кг', color: Colors.pink),
-          _StatItem(value: '2.3', unit: 'года', color: Colors.blue),
-          _StatItem(value: '47', unit: 'слов', color: Colors.green),
+          Text(
+            child.name,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _StatItem(
+                value: child.height.toStringAsFixed(0),
+                unit: 'см',
+                color: Colors.purple,
+              ),
+              _StatItem(
+                value: child.weight.toStringAsFixed(1),
+                unit: 'кг',
+                color: Colors.pink,
+              ),
+              _StatItem(
+                value: child.ageFormatted,
+                unit: '',
+                color: Colors.blue,
+              ),
+            ],
+          ),
         ],
       ),
-    ).animate()
-        .fadeIn(delay: 400.ms)
-        .slideY(begin: 0.2);
+    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.2);
+  }
+
+  Widget _buildAddChildPrompt(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      child: ElevatedButton.icon(
+        onPressed: () => _showAddChildDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Добавить ребенка'),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showComingSoon(BuildContext context, String feature) {
@@ -282,13 +342,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _showStoryGenerator(BuildContext context) {
+    if (_children.isEmpty) {
+      _showAddChildDialog(context);
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) => const StoryGeneratorSheet(),
+      builder: (context) => StoryGeneratorSheet(children: _children),
     );
   }
 
@@ -300,6 +365,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       builder: (context) => const AIAssistantSheet(),
+    );
+  }
+
+  void _showAddChildDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const AddChildDialog(),
     );
   }
 
@@ -390,17 +462,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               onTap: () async {
                 Navigator.of(context).pop();
-
-                if (kIsWeb) {
-                  await mock_firebase.MockFirebaseService.signOut();
-                } else {
-                  await platform_firebase.PlatformFirebaseService.signOut();
-                }
-
-                // Обновляем состояние авторизации
-                if (context.mounted) {
-                  Provider.of<AuthProvider>(context, listen: false).setAuthenticated(false);
-                }
+                await FirebaseService.signOut();
               },
             ),
 
@@ -408,6 +470,175 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Диалог добавления ребенка
+class AddChildDialog extends StatefulWidget {
+  const AddChildDialog({super.key});
+
+  @override
+  State<AddChildDialog> createState() => _AddChildDialogState();
+}
+
+class _AddChildDialogState extends State<AddChildDialog> {
+  final _nameController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _weightController = TextEditingController();
+  DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365 * 2));
+  String _gender = 'male';
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите имя ребенка')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseService.addChild(
+        name: _nameController.text,
+        birthDate: _birthDate,
+        gender: _gender,
+        height: double.tryParse(_heightController.text),
+        weight: double.tryParse(_weightController.text),
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ребенок добавлен')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Добавить ребенка'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Имя',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Дата рождения
+            ListTile(
+              title: const Text('Дата рождения'),
+              subtitle: Text(
+                '${_birthDate.day}.${_birthDate.month}.${_birthDate.year}',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _birthDate,
+                  firstDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+                  lastDate: DateTime.now(),
+                );
+                if (date != null) {
+                  setState(() => _birthDate = date);
+                }
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Пол
+            Row(
+              children: [
+                const Text('Пол: '),
+                Radio<String>(
+                  value: 'male',
+                  groupValue: _gender,
+                  onChanged: (value) => setState(() => _gender = value!),
+                ),
+                const Text('Мальчик'),
+                Radio<String>(
+                  value: 'female',
+                  groupValue: _gender,
+                  onChanged: (value) => setState(() => _gender = value!),
+                ),
+                const Text('Девочка'),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Рост и вес
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _heightController,
+                    decoration: const InputDecoration(
+                      labelText: 'Рост (см)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _weightController,
+                    decoration: const InputDecoration(
+                      labelText: 'Вес (кг)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _save,
+          child: _isLoading
+              ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+              : const Text('Добавить'),
+        ),
+      ],
     );
   }
 }
@@ -446,7 +677,7 @@ class _AIAssistantSheetState extends State<AIAssistantSheet> {
       // Получаем совет от ИИ
       final advice = await AIService.getParentingAdvice(
         topic: question,
-        childAge: '2 года 3 месяца', // В реальном приложении брать из профиля
+        childAge: '2 года 3 месяца', // TODO: Брать из профиля активного ребенка
         language: locale.languageCode,
       );
 
@@ -460,15 +691,7 @@ class _AIAssistantSheetState extends State<AIAssistantSheet> {
       });
 
       // Добавляем XP за использование ИИ
-      if (kIsWeb) {
-        if (mock_firebase.MockFirebaseService.isAuthenticated) {
-          await mock_firebase.MockFirebaseService.addXP(10);
-        }
-      } else {
-        if (platform_firebase.PlatformFirebaseService.isAuthenticated) {
-          await platform_firebase.PlatformFirebaseService.addXP(10);
-        }
-      }
+      await FirebaseService.addXP(10);
 
     } catch (e) {
       setState(() {
@@ -768,12 +991,11 @@ class _FeatureCard extends StatelessWidget {
               ),
           ],
         ),
-      ).animate()
-          .scale(
-        delay: (50 * index).ms,
-        duration: 400.ms,
-        curve: Curves.easeOutBack,
       ),
+    ).animate().scale(
+      delay: (50 * index).ms,
+      duration: 400.ms,
+      curve: Curves.easeOutBack,
     );
   }
 }
@@ -813,21 +1035,31 @@ class _StatItem extends StatelessWidget {
 
 // Генератор сказок с ИИ
 class StoryGeneratorSheet extends StatefulWidget {
-  const StoryGeneratorSheet({super.key});
+  final List<ChildProfile> children;
+
+  const StoryGeneratorSheet({
+    super.key,
+    required this.children,
+  });
 
   @override
   State<StoryGeneratorSheet> createState() => _StoryGeneratorSheetState();
 }
 
 class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
-  final _nameController = TextEditingController(text: 'Максим');
   final _themeController = TextEditingController();
+  late ChildProfile _selectedChild;
   String? _generatedStory;
   bool _isGenerating = false;
 
   @override
+  void initState() {
+    super.initState();
+    _selectedChild = widget.children.first;
+  }
+
+  @override
   void dispose() {
-    _nameController.dispose();
     _themeController.dispose();
     super.dispose();
   }
@@ -844,7 +1076,7 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
 
       // Генерация через ИИ
       final story = await AIService.generateStory(
-        childName: _nameController.text,
+        childName: _selectedChild.name,
         theme: _themeController.text,
         language: locale.languageCode,
       );
@@ -855,25 +1087,12 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
       });
 
       // Сохраняем сказку и добавляем XP
-      if (kIsWeb) {
-        if (mock_firebase.MockFirebaseService.isAuthenticated) {
-          await mock_firebase.MockFirebaseService.saveStory(
-            childId: 'default', // В реальном приложении брать ID выбранного ребенка
-            story: story,
-            theme: _themeController.text,
-          );
-          await mock_firebase.MockFirebaseService.addXP(50);
-        }
-      } else {
-        if (platform_firebase.PlatformFirebaseService.isAuthenticated) {
-          await platform_firebase.PlatformFirebaseService.saveStory(
-            childId: 'default', // В реальном приложении брать ID выбранного ребенка
-            story: story,
-            theme: _themeController.text,
-          );
-          await platform_firebase.PlatformFirebaseService.addXP(50);
-        }
-      }
+      await FirebaseService.saveStory(
+        childId: _selectedChild.id,
+        story: story,
+        theme: _themeController.text,
+      );
+      await FirebaseService.addXP(50);
 
     } catch (e) {
       setState(() {
@@ -921,15 +1140,28 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
                 ),
               ),
               const SizedBox(height: 20),
-              TextField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  labelText: loc.childName,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.child_care),
+
+              // Выбор ребенка
+              if (widget.children.length > 1) ...[
+                DropdownButtonFormField<ChildProfile>(
+                  value: _selectedChild,
+                  decoration: const InputDecoration(
+                    labelText: 'Для кого сказка?',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: widget.children.map((child) => DropdownMenuItem(
+                    value: child,
+                    child: Text(child.name),
+                  )).toList(),
+                  onChanged: (child) {
+                    if (child != null) {
+                      setState(() => _selectedChild = child);
+                    }
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
+
               TextField(
                 controller: _themeController,
                 decoration: InputDecoration(
@@ -1021,14 +1253,14 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
                         children: [
                           TextButton.icon(
                             onPressed: () {
-                              // Сохранить в избранное
+                              // TODO: Реализовать сохранение в избранное
                             },
                             icon: const Icon(Icons.favorite_border),
                             label: const Text('Сохранить'),
                           ),
                           TextButton.icon(
                             onPressed: () {
-                              // Поделиться
+                              // TODO: Реализовать функцию "Поделиться"
                             },
                             icon: const Icon(Icons.share),
                             label: const Text('Поделиться'),
