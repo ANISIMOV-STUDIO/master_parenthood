@@ -11,6 +11,9 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  url_launcher: ^6.2.5 # Added url_launcher dependency
+  cached_network_image: ^3.3.1 # Added cached_network_image dependency
+  image_picker: ^1.0.7 # Added image_picker dependency
 
   # State Management
   provider: ^6.0.5

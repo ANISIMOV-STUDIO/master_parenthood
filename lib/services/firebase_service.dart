@@ -5,8 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'dart:io';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart'; // Added for debugPrint
 
 class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -99,7 +98,7 @@ class FirebaseService {
 
       if (result.status == LoginStatus.success) {
         final OAuthCredential credential =
-        FacebookAuthProvider.credential(result.accessToken!.tokenString);
+        FacebookAuthProvider.credential(result.accessToken!.token);
 
         final userCredential = await _auth.signInWithCredential(credential);
         await _ensureUserProfile(userCredential.user);
@@ -195,6 +194,7 @@ class FirebaseService {
         'subscription': 'free',
         'provider': user.providerData.first.providerId,
         ...?additionalData,
+        'activeChildId': null, // Added activeChildId field
       };
 
       await userDoc.set(userData);
@@ -456,7 +456,7 @@ class FirebaseService {
       final url = await uploadTask.ref.getDownloadURL();
       return url;
     } catch (e) {
-      print('Ошибка загрузки изображения: $e');
+      debugPrint('Ошибка загрузки изображения: $e'); // Changed print to debugPrint
       return null;
     }
   }
@@ -599,6 +599,7 @@ class UserProfile {
   final DateTime createdAt;
   final DateTime lastLogin;
   final String provider;
+  final String? activeChildId; // Added activeChildId field
 
   UserProfile({
     required this.uid,
@@ -611,6 +612,7 @@ class UserProfile {
     required this.createdAt,
     required this.lastLogin,
     required this.provider,
+    this.activeChildId, // Added activeChildId to constructor
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -626,6 +628,7 @@ class UserProfile {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLogin: (data['lastLogin'] as Timestamp?)?.toDate() ?? DateTime.now(),
       provider: data['provider'] ?? 'email',
+      activeChildId: data['activeChildId'], // Read activeChildId from data
     );
   }
 

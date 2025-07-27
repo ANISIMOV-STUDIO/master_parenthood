@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+
 // Провайдеры
 import 'providers/locale_provider.dart';
 
@@ -26,7 +27,7 @@ void main() async {
   try {
     await Firebase.initializeApp();
   } catch (e) {
-    print('Firebase initialization error: $e');
+    debugPrint('Firebase initialization error: $e'); // Changed print to debugPrint
   }
 
   // Загружаем сохраненные настройки
@@ -132,7 +133,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  String? _activeChildId;
 
   final List<Widget> _screens = [
     const HomeScreen(),
@@ -144,17 +144,12 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _loadActiveChild();
+    // _loadActiveChild(); // Removed unused method call
   }
 
-  Future<void> _loadActiveChild() async {
-    final profile = await FirebaseService.getUserProfile();
-    if (profile != null && mounted) {
-      setState(() {
-        _activeChildId = profile.activeChildId;
-      });
-    }
-  }
+  // Future<void> _loadActiveChild() async { // Removed unused method
+  //   final profile = await FirebaseService.getUserProfile();
+  // }
 
   @override
   Widget build(BuildContext context) {

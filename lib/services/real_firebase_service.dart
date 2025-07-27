@@ -3,6 +3,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart'; // Added for debugPrint
 
 class RealFirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -28,7 +29,7 @@ class RealFirebaseService {
       );
       return userCredential;
     } catch (e) {
-      print('Error signing in with email: $e');
+      debugPrint('Error signing in with email: $e'); // Changed print to debugPrint
       rethrow;
     }
   }
@@ -61,7 +62,7 @@ class RealFirebaseService {
 
       return userCredential;
     } catch (e) {
-      print('Error registering with email: $e');
+      debugPrint('Error registering with email: $e'); // Changed print to debugPrint
       rethrow;
     }
   }
@@ -113,7 +114,7 @@ class RealFirebaseService {
 
       return userCredential;
     } catch (e) {
-      print('Error signing in with Google: $e');
+      debugPrint('Error signing in with Google: $e'); // Changed print to debugPrint
       rethrow;
     }
   }
@@ -127,11 +128,11 @@ class RealFirebaseService {
             .doc(userId)
             .update({'xp': FieldValue.increment(amount)});
       } catch (e) {
-        print('Error adding XP: $e');
+        debugPrint('Error adding XP: $e'); // Changed print to debugPrint
         rethrow;
       }
     } else {
-      print('Error adding XP: User not logged in');
+      debugPrint('Error adding XP: User not logged in'); // Changed print to debugPrint
       throw Exception('User not logged in');
     }
   }
@@ -152,11 +153,11 @@ class RealFirebaseService {
           'timestamp': FieldValue.serverTimestamp(),
         });
       } catch (e) {
-        print('Error saving story: $e');
+        debugPrint('Error saving story: $e'); // Changed print to debugPrint
         rethrow;
       }
     } else {
-      print('Error saving story: User not logged in');
+      debugPrint('Error saving story: User not logged in'); // Changed print to debugPrint
       throw Exception('User not logged in');
     }
   }
@@ -193,11 +194,11 @@ class RealFirebaseService {
       if (childDoc.exists) {
         return childDoc.data();
       } else {
-        print('Child document not found');
+        debugPrint('Child document not found'); // Changed print to debugPrint
         return null;
       }
     } catch (e) {
-      print('Error getting child data: $e');
+      debugPrint('Error getting child data: $e'); // Changed print to debugPrint
       rethrow;
     }
   }

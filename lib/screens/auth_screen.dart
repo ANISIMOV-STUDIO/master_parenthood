@@ -1,14 +1,12 @@
 // lib/screens/auth_screen.dart
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
-import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/firebase_service.dart';
-import '../main.dart' show AuthProvider;
+import '../providers/auth_provider.dart'; // Изменен импорт AuthProvider
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -79,7 +77,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
       }
 
       if (mounted) {
-        Provider.of<AuthProvider>(context, listen: false).setAuthenticated(true);
+        Provider.of<AuthProvider>(context, listen: false)
+            .setAuthenticated(true);
       }
     } catch (e) {
       _showMessage(e.toString());
@@ -96,7 +95,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     try {
       final user = await FirebaseService.signInWithGoogle();
       if (user != null && mounted) {
-        Provider.of<AuthProvider>(context, listen: false).setAuthenticated(true);
+        Provider.of<AuthProvider>(context, listen: false)
+            .setAuthenticated(true);
       }
     } catch (e) {
       _showMessage(e.toString());
@@ -113,7 +113,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     try {
       final user = await FirebaseService.signInWithFacebook();
       if (user != null && mounted) {
-        Provider.of<AuthProvider>(context, listen: false).setAuthenticated(true);
+        Provider.of<AuthProvider>(context, listen: false)
+            .setAuthenticated(true);
       }
     } catch (e) {
       _showMessage(e.toString());
@@ -127,24 +128,27 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
   // VK авторизация через веб
   Future<void> _signInWithVK() async {
     const vkAppId = 'YOUR_VK_APP_ID'; // Замените на ваш VK App ID
-    const redirectUri = 'https://your-app.com/vk-callback'; // Замените на ваш URL
+    const redirectUri =
+        'https://your-app.com/vk-callback'; // Замените на ваш URL
 
-    final url = Uri.parse(
-        'https://oauth.vk.com/authorize'
-            '?client_id=$vkAppId'
-            '&display=mobile'
-            '&redirect_uri=$redirectUri'
-            '&scope=email'
-            '&response_type=token'
-            '&v=5.131'
-    );
+    final url = Uri.parse('https://oauth.vk.com/authorize'
+        '?client_id=$vkAppId'
+        '&display=mobile'
+        '&redirect_uri=$redirectUri'
+        '&scope=email'
+        '&response_type=token'
+        '&v=5.131');
 
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (await launchUrl(url)) {
+        // Изменено: убрано canLaunchUrl
+        // Изменено: убрано mode: LaunchMode.externalApplication
+        await launchUrl(url);
         // После авторизации пользователь вернется в приложение
         // и вам нужно будет обработать callback с токеном
         _showMessage('Завершите авторизацию в браузере');
+      } else {
+        _showMessage('Не удалось открыть URL');
       }
     } catch (e) {
       _showMessage('Ошибка открытия VK: $e');
@@ -153,20 +157,24 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
 
   // Яндекс авторизация через веб
   Future<void> _signInWithYandex() async {
-    const yandexClientId = 'YOUR_YANDEX_CLIENT_ID'; // Замените на ваш Yandex Client ID
-    const redirectUri = 'https://your-app.com/yandex-callback'; // Замените на ваш URL
+    const yandexClientId =
+        'YOUR_YANDEX_CLIENT_ID'; // Замените на ваш Yandex Client ID
+    const redirectUri =
+        'https://your-app.com/yandex-callback'; // Замените на ваш URL
 
-    final url = Uri.parse(
-        'https://oauth.yandex.ru/authorize'
-            '?response_type=token'
-            '&client_id=$yandexClientId'
-            '&redirect_uri=$redirectUri'
-    );
+    final url = Uri.parse('https://oauth.yandex.ru/authorize'
+        '?response_type=token'
+        '&client_id=$yandexClientId'
+        '&redirect_uri=$redirectUri');
 
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (await launchUrl(url)) {
+        // Изменено: убрано canLaunchUrl
+        // Изменено: убрано mode: LaunchMode.externalApplication
+        await launchUrl(url);
         _showMessage('Завершите авторизацию в браузере');
+      } else {
+        _showMessage('Не удалось открыть URL');
       }
     } catch (e) {
       _showMessage('Ошибка открытия Яндекс: $e');
@@ -249,7 +257,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                           color: Colors.purple,
                         ),
                       ),
-                    ).animate()
+                    )
+                        .animate()
                         .scale(duration: 600.ms, curve: Curves.easeOutBack)
                         .fadeIn(),
 
@@ -258,7 +267,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                     // Название приложения
                     Text(
                       'Master Parenthood',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         shadows: [
@@ -268,9 +278,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                           ),
                         ],
                       ),
-                    ).animate()
-                        .fadeIn(delay: 200.ms)
-                        .slideY(begin: -0.2),
+                    ).animate().fadeIn(delay: 200.ms).slideY(begin: -0.2),
 
                     const SizedBox(height: 40),
 
@@ -294,10 +302,13 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                           // Заголовок формы
                           Text(
                             _isLogin ? 'С возвращением!' : 'Добро пожаловать!',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.purple.shade700,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.purple.shade700,
+                                ),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -365,7 +376,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                             width: double.infinity,
                             height: 55,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _submitEmailPassword,
+                              onPressed:
+                                  _isLoading ? null : _submitEmailPassword,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.purple,
                                 shape: RoundedRectangleBorder(
@@ -375,21 +387,21 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                               ),
                               child: _isLoading
                                   ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                   : Text(
-                                _isLogin ? 'Войти' : 'Создать аккаунт',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                                      _isLogin ? 'Войти' : 'Создать аккаунт',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                             ),
                           ),
 
@@ -400,7 +412,8 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                             children: [
                               const Expanded(child: Divider()),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
                                   'или',
                                   style: TextStyle(color: Colors.grey.shade600),
@@ -434,9 +447,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                                   });
                                 },
                                 child: Text(
-                                  _isLogin
-                                      ? 'Зарегистрируйтесь'
-                                      : 'Войдите',
+                                  _isLogin ? 'Зарегистрируйтесь' : 'Войдите',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -446,9 +457,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                           ),
                         ],
                       ),
-                    ).animate()
-                        .fadeIn(delay: 200.ms)
-                        .slideY(begin: 0.1),
+                    ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1),
                   ],
                 ),
               ),
@@ -573,7 +582,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
               if (icon is IconData)
                 Icon(icon, color: textColor, size: 24)
               else if (icon is String)
-              // Заглушка для иконок из assets
+                // Заглушка для иконок из assets
                 Container(
                   width: 24,
                   height: 24,
@@ -604,9 +613,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           ),
         ),
       ),
-    ).animate()
-        .fadeIn(delay: (400 + delay).ms)
-        .slideX(begin: -0.2);
+    ).animate().fadeIn(delay: (400 + delay).ms).slideX(begin: -0.2);
   }
 
   void _showResetPasswordDialog() {

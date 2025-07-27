@@ -186,16 +186,17 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                         bottom: 16,
                         right: 16,
                         child: FloatingActionButton.small(
-                          onPressed: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+                          onPressed:
+                              _isUploadingPhoto ? null : _pickAndUploadPhoto,
                           child: _isUploadingPhoto
                               ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
                               : const Icon(Icons.camera_alt),
                         ),
                       ),
@@ -212,9 +213,9 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                       },
                       itemBuilder: (context) => children
                           .map((child) => PopupMenuItem(
-                        value: child,
-                        child: Text(child.name),
-                      ))
+                                value: child,
+                                child: Text(child.name),
+                              ))
                           .toList(),
                       child: const Padding(
                         padding: EdgeInsets.all(8.0),
@@ -225,7 +226,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                   // Редактирование
                   IconButton(
                     icon: const Icon(Icons.edit),
-                    onPressed: () => _showEditChildDialog(context, _activeChild!),
+                    onPressed: () =>
+                        _showEditChildDialog(context, _activeChild!),
                   ),
                 ],
               ),
@@ -241,10 +243,14 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                         child: Column(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 10),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: [Colors.purple.shade400, Colors.pink.shade400],
+                                  colors: [
+                                    Colors.purple.shade400,
+                                    Colors.pink.shade400
+                                  ],
                                 ),
                                 borderRadius: BorderRadius.circular(25),
                                 boxShadow: [
@@ -272,12 +278,18 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  _activeChild!.gender == 'male' ? Icons.male : Icons.female,
-                                  color: _activeChild!.gender == 'male' ? Colors.blue : Colors.pink,
+                                  _activeChild!.gender == 'male'
+                                      ? Icons.male
+                                      : Icons.female,
+                                  color: _activeChild!.gender == 'male'
+                                      ? Colors.blue
+                                      : Colors.pink,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  _activeChild!.gender == 'male' ? 'Мальчик' : 'Девочка',
+                                  _activeChild!.gender == 'male'
+                                      ? 'Мальчик'
+                                      : 'Девочка',
                                   style: const TextStyle(fontSize: 16),
                                 ),
                               ],
@@ -349,8 +361,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
               Text(
                 loc.virtualPet,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
             ],
           ),
@@ -362,9 +374,11 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                 animation: _petController,
                 builder: (context, child) {
                   return Transform.translate(
-                    offset: Offset(0, math.sin(_petController.value * math.pi) * 10),
+                    offset: Offset(
+                        0, math.sin(_petController.value * math.pi) * 10),
                     child: Transform.scale(
-                      scale: 1.0 + math.sin(_petController.value * math.pi) * 0.1,
+                      scale:
+                          1.0 + math.sin(_petController.value * math.pi) * 0.1,
                       child: Text(
                         _activeChild!.petType,
                         style: const TextStyle(fontSize: 80),
@@ -384,9 +398,10 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                       children: [
                         Text(
                           _activeChild!.petName,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.edit, size: 20),
@@ -395,11 +410,14 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                       ],
                     ),
                     const SizedBox(height: 12),
-                    _buildPetStat(loc.happiness, _activeChild!.petStats['happiness']!, Colors.yellow),
+                    _buildPetStat(loc.happiness,
+                        _activeChild!.petStats['happiness']!, Colors.yellow),
                     const SizedBox(height: 8),
-                    _buildPetStat(loc.energy, _activeChild!.petStats['energy']!, Colors.pink),
+                    _buildPetStat(loc.energy, _activeChild!.petStats['energy']!,
+                        Colors.pink),
                     const SizedBox(height: 8),
-                    _buildPetStat(loc.knowledge, _activeChild!.petStats['knowledge']!, Colors.blue),
+                    _buildPetStat(loc.knowledge,
+                        _activeChild!.petStats['knowledge']!, Colors.blue),
                   ],
                 ),
               ),
@@ -423,7 +441,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
             ),
             Text(
               '$value%',
-              style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  fontSize: 12, color: color, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -446,7 +465,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
 
   Widget _buildGrowthChart(BuildContext context, AppLocalizations loc) {
     // Здесь можно добавить реальные данные из Firestore
-    final growthData = const [
+    const growthData = [
       FlSpot(0, 80),
       FlSpot(1, 82),
       FlSpot(2, 84),
@@ -475,8 +494,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
           Text(
             loc.growthChart,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 20),
           Expanded(
@@ -533,8 +552,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
             Text(
               loc.milestones,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
           ],
         ),
@@ -605,10 +624,14 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
 
   Widget _buildQuickStats(BuildContext context, AppLocalizations loc) {
     final stats = [
-      StatItem(Icons.straighten, '${_activeChild!.height} ${loc.heightCm}', loc.heightCm, Colors.purple),
-      StatItem(Icons.monitor_weight, '${_activeChild!.weight} ${loc.weightKg}', loc.weightKg, Colors.pink),
-      StatItem(Icons.calendar_today, '${_activeChild!.ageInMonths} мес.', 'Возраст', Colors.blue),
-      StatItem(Icons.celebration, '${_activeChild!.petStats['happiness']}', 'Счастье', Colors.green),
+      StatItem(Icons.straighten, '${_activeChild!.height} ${loc.heightCm}',
+          loc.heightCm, Colors.purple),
+      StatItem(Icons.monitor_weight, '${_activeChild!.weight} ${loc.weightKg}',
+          loc.weightKg, Colors.pink),
+      StatItem(Icons.calendar_today, '${_activeChild!.ageInMonths} мес.',
+          'Возраст', Colors.blue),
+      StatItem(Icons.celebration, '${_activeChild!.petStats['happiness']}',
+          'Счастье', Colors.green),
     ];
 
     return GridView.builder(
@@ -655,7 +678,10 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
               ),
             ],
           ),
-        ).animate().fadeIn(delay: (800 + index * 100).ms).scale(begin: const Offset(0.8, 0.8));
+        )
+            .animate()
+            .fadeIn(delay: (800 + index * 100).ms)
+            .scale(begin: const Offset(0.8, 0.8));
       },
     );
   }
@@ -671,8 +697,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
             Text(
               'История сказок',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
           ],
         ),
@@ -744,7 +770,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
                         ),
                       ],
                     ),
-                  ).animate()
+                  )
+                      .animate()
                       .fadeIn(delay: (100 * index).ms)
                       .slideX(begin: 0.2);
                 },
@@ -888,7 +915,8 @@ class _AddChildDialogState extends State<AddChildDialog> {
                 final date = await showDatePicker(
                   context: context,
                   initialDate: _birthDate,
-                  firstDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+                  firstDate:
+                      DateTime.now().subtract(const Duration(days: 365 * 18)),
                   lastDate: DateTime.now(),
                 );
                 if (date != null) {
@@ -958,10 +986,10 @@ class _AddChildDialogState extends State<AddChildDialog> {
           onPressed: _isLoading ? null : _save,
           child: _isLoading
               ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Добавить'),
         ),
       ],
@@ -991,8 +1019,10 @@ class _EditChildDialogState extends State<EditChildDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.child.name);
-    _heightController = TextEditingController(text: widget.child.height.toString());
-    _weightController = TextEditingController(text: widget.child.weight.toString());
+    _heightController =
+        TextEditingController(text: widget.child.height.toString());
+    _weightController =
+        TextEditingController(text: widget.child.weight.toString());
     _birthDate = widget.child.birthDate;
     _gender = widget.child.gender;
   }
@@ -1065,7 +1095,8 @@ class _EditChildDialogState extends State<EditChildDialog> {
                 final date = await showDatePicker(
                   context: context,
                   initialDate: _birthDate,
-                  firstDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+                  firstDate:
+                      DateTime.now().subtract(const Duration(days: 365 * 18)),
                   lastDate: DateTime.now(),
                 );
                 if (date != null) {
@@ -1135,10 +1166,10 @@ class _EditChildDialogState extends State<EditChildDialog> {
           onPressed: _isLoading ? null : _save,
           child: _isLoading
               ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Сохранить'),
         ),
       ],
@@ -1161,7 +1192,18 @@ class _EditPetDialogState extends State<EditPetDialog> {
   late String _selectedEmoji;
   bool _isLoading = false;
 
-  final List<String> _petEmojis = ['🦄', '🐻', '🦊', '🐯', '🦁', '🐶', '🐱', '🐭', '🐹', '🐰'];
+  final List<String> _petEmojis = [
+    '🦄',
+    '🐻',
+    '🦊',
+    '🐯',
+    '🦁',
+    '🐶',
+    '🐱',
+    '🐭',
+    '🐹',
+    '🐰'
+  ];
 
   @override
   void initState() {
@@ -1229,7 +1271,9 @@ class _EditPetDialogState extends State<EditPetDialog> {
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.purple.shade100 : Colors.grey.shade200,
+                    color: isSelected
+                        ? Colors.purple.shade100
+                        : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: isSelected ? Colors.purple : Colors.transparent,
@@ -1252,10 +1296,10 @@ class _EditPetDialogState extends State<EditPetDialog> {
           onPressed: _isLoading ? null : _save,
           child: _isLoading
               ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Text('Сохранить'),
         ),
       ],
