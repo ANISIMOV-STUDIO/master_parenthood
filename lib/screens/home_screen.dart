@@ -2,11 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/locale_provider.dart';
 import '../services/ai_service.dart';
 import '../services/firebase_service.dart';
-import '../main.dart'; // Для ThemeProvider
+import '../main.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _backgroundController;
   UserProfile? _userProfile;
   List<ChildProfile> _children = [];
+  ChildProfile? _activeChild;
 
   @override
   void initState() {
@@ -33,9 +35,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _loadUserData() async {
     final profile = await FirebaseService.getUserProfile();
+    final activeChild = await FirebaseService.getActiveChild();
+
     if (mounted) {
       setState(() {
         _userProfile = profile;
+        _activeChild = activeChild;
       });
     }
   }
@@ -263,7 +268,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildChildrenStatsBar(BuildContext context, List<ChildProfile> children) {
-    final child = children.first; // TODO: Добавить выбор активного ребенка
+    // Используем активного ребенка или первого из списка
+    final child = _activeChild ?? children.first;
 
     return Container(
       margin: const EdgeInsets.all(20),
@@ -281,11 +287,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       child: Column(
         children: [
-          Text(
-            child.name,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                child.name,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              // Кнопка выбора ребенка
+              if (children.length > 1)
+                PopupMenuButton<ChildProfile>(
+                  initialValue: child,
+                  onSelected: (selectedChild) async {
+                    await FirebaseService.setActiveChild(selectedChild.id);
+                    setState(() {
+                      _activeChild = selectedChild;
+                    });
+                  },
+                  itemBuilder: (context) => children
+                      .map((c) => PopupMenuItem(
+                    value: c,
+                    child: Row(
+                      children: [
+                        Text(c.name),
+                        if (c.id == child.id) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.check, size: 16),
+                        ],
+                      ],
+                    ),
+                  ))
+                      .toList(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Сменить',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const Icon(Icons.arrow_drop_down, size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Row(
@@ -353,7 +405,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) => StoryGeneratorSheet(children: _children),
+      builder: (context) => StoryGeneratorSheet(
+        children: _children,
+        activeChild: _activeChild,
+      ),
     );
   }
 
@@ -364,7 +419,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) => const AIAssistantSheet(),
+      builder: (context) => AIAssistantSheet(
+        activeChild: _activeChild,
+      ),
     );
   }
 
@@ -474,178 +531,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 }
 
-// Диалог добавления ребенка
-class AddChildDialog extends StatefulWidget {
-  const AddChildDialog({super.key});
-
-  @override
-  State<AddChildDialog> createState() => _AddChildDialogState();
-}
-
-class _AddChildDialogState extends State<AddChildDialog> {
-  final _nameController = TextEditingController();
-  final _heightController = TextEditingController();
-  final _weightController = TextEditingController();
-  DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365 * 2));
-  String _gender = 'male';
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _heightController.dispose();
-    _weightController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите имя ребенка')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseService.addChild(
-        name: _nameController.text,
-        birthDate: _birthDate,
-        gender: _gender,
-        height: double.tryParse(_heightController.text),
-        weight: double.tryParse(_weightController.text),
-      );
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ребенок добавлен')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Добавить ребенка'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Имя',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Дата рождения
-            ListTile(
-              title: const Text('Дата рождения'),
-              subtitle: Text(
-                '${_birthDate.day}.${_birthDate.month}.${_birthDate.year}',
-              ),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _birthDate,
-                  firstDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
-                  lastDate: DateTime.now(),
-                );
-                if (date != null) {
-                  setState(() => _birthDate = date);
-                }
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Пол
-            Row(
-              children: [
-                const Text('Пол: '),
-                Radio<String>(
-                  value: 'male',
-                  groupValue: _gender,
-                  onChanged: (value) => setState(() => _gender = value!),
-                ),
-                const Text('Мальчик'),
-                Radio<String>(
-                  value: 'female',
-                  groupValue: _gender,
-                  onChanged: (value) => setState(() => _gender = value!),
-                ),
-                const Text('Девочка'),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Рост и вес
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _heightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Рост (см)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _weightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Вес (кг)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _save,
-          child: _isLoading
-              ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-              : const Text('Добавить'),
-        ),
-      ],
-    );
-  }
-}
-
-// ИИ-ассистент
+// ИИ-ассистент с поддержкой активного ребенка
 class AIAssistantSheet extends StatefulWidget {
-  const AIAssistantSheet({super.key});
+  final ChildProfile? activeChild;
+
+  const AIAssistantSheet({
+    super.key,
+    this.activeChild,
+  });
 
   @override
   State<AIAssistantSheet> createState() => _AIAssistantSheetState();
@@ -674,10 +567,13 @@ class _AIAssistantSheetState extends State<AIAssistantSheet> {
     try {
       final locale = Provider.of<LocaleProvider>(context, listen: false).locale;
 
+      // Используем возраст активного ребенка
+      final childAge = widget.activeChild?.ageFormattedShort ?? '2 года';
+
       // Получаем совет от ИИ
       final advice = await AIService.getParentingAdvice(
         topic: question,
-        childAge: '2 года 3 месяца', // TODO: Брать из профиля активного ребенка
+        childAge: childAge,
         language: locale.languageCode,
       );
 
@@ -742,10 +638,22 @@ class _AIAssistantSheetState extends State<AIAssistantSheet> {
                       size: 28,
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      loc.aiAssistant,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            loc.aiAssistant,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (widget.activeChild != null)
+                            Text(
+                              'Советы для ${widget.activeChild!.name} (${widget.activeChild!.ageFormattedShort})',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -774,6 +682,17 @@ class _AIAssistantSheetState extends State<AIAssistantSheet> {
                       fontSize: 16,
                     ),
                   ),
+                  if (widget.activeChild != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Рекомендации будут адаптированы под возраст вашего ребенка',
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 14,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ],
               ),
             )
@@ -841,6 +760,287 @@ class _AIAssistantSheetState extends State<AIAssistantSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// Генератор сказок с функциями сохранения и поделиться
+class StoryGeneratorSheet extends StatefulWidget {
+  final List<ChildProfile> children;
+  final ChildProfile? activeChild;
+
+  const StoryGeneratorSheet({
+    super.key,
+    required this.children,
+    this.activeChild,
+  });
+
+  @override
+  State<StoryGeneratorSheet> createState() => _StoryGeneratorSheetState();
+}
+
+class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
+  final _themeController = TextEditingController();
+  late ChildProfile _selectedChild;
+  String? _generatedStory;
+  String? _storyId;
+  bool _isGenerating = false;
+  bool _isFavorite = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedChild = widget.activeChild ?? widget.children.first;
+  }
+
+  @override
+  void dispose() {
+    _themeController.dispose();
+    super.dispose();
+  }
+
+  void _generateStory() async {
+    if (_themeController.text.isEmpty) return;
+
+    setState(() {
+      _isGenerating = true;
+    });
+
+    try {
+      final locale = Provider.of<LocaleProvider>(context, listen: false).locale;
+
+      // Генерация через ИИ
+      final story = await AIService.generateStory(
+        childName: _selectedChild.name,
+        theme: _themeController.text,
+        language: locale.languageCode,
+      );
+
+      // Сохраняем сказку и получаем ID
+      final storyId = await FirebaseService.saveStory(
+        childId: _selectedChild.id,
+        story: story,
+        theme: _themeController.text,
+      );
+
+      setState(() {
+        _generatedStory = story;
+        _storyId = storyId;
+        _isGenerating = false;
+        _isFavorite = false;
+      });
+
+      await FirebaseService.addXP(50);
+
+    } catch (e) {
+      setState(() {
+        _isGenerating = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: ${e.toString()}')),
+      );
+    }
+  }
+
+  void _toggleFavorite() async {
+    if (_storyId == null) return;
+
+    await FirebaseService.toggleStoryFavorite(_storyId!);
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_isFavorite ? 'Добавлено в избранное' : 'Удалено из избранного'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _shareStory() {
+    if (_generatedStory == null) return;
+
+    final text = '${_themeController.text}\n\n$_generatedStory\n\nСоздано в Master Parenthood';
+    Share.share(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 50,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                loc.storyGenerator,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Выбор ребенка
+              if (widget.children.length > 1) ...[
+                DropdownButtonFormField<ChildProfile>(
+                  value: _selectedChild,
+                  decoration: const InputDecoration(
+                    labelText: 'Для кого сказка?',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: widget.children.map((child) => DropdownMenuItem(
+                    value: child,
+                    child: Text(child.name),
+                  )).toList(),
+                  onChanged: (child) {
+                    if (child != null) {
+                      setState(() => _selectedChild = child);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              TextField(
+                controller: _themeController,
+                decoration: InputDecoration(
+                  labelText: loc.storyTheme,
+                  hintText: loc.storyHint,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.auto_stories),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isGenerating ? null : _generateStory,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    padding: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isGenerating
+                      ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        loc.generating,
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ],
+                  )
+                      : Text(
+                    loc.generateStory,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+              if (_generatedStory != null) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.purple.shade200,
+                      width: 2,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.auto_stories,
+                            color: Colors.purple.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _themeController.text,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.purple.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _generatedStory!,
+                        style: const TextStyle(fontSize: 16, height: 1.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          TextButton.icon(
+                            onPressed: _toggleFavorite,
+                            icon: Icon(
+                              _isFavorite ? Icons.favorite : Icons.favorite_border,
+                              color: _isFavorite ? Colors.red : null,
+                            ),
+                            label: Text(_isFavorite ? 'В избранном' : 'Сохранить'),
+                          ),
+                          TextButton.icon(
+                            onPressed: _shareStory,
+                            icon: const Icon(Icons.share),
+                            label: const Text('Поделиться'),
+                          ),
+                          TextButton.icon(
+                            onPressed: _generateStory,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Новая'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn().slideY(begin: 0.1),
+              ],
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1033,249 +1233,171 @@ class _StatItem extends StatelessWidget {
   }
 }
 
-// Генератор сказок с ИИ
-class StoryGeneratorSheet extends StatefulWidget {
-  final List<ChildProfile> children;
-
-  const StoryGeneratorSheet({
-    super.key,
-    required this.children,
-  });
+// Диалог добавления ребенка
+class AddChildDialog extends StatefulWidget {
+  const AddChildDialog({super.key});
 
   @override
-  State<StoryGeneratorSheet> createState() => _StoryGeneratorSheetState();
+  State<AddChildDialog> createState() => _AddChildDialogState();
 }
 
-class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
-  final _themeController = TextEditingController();
-  late ChildProfile _selectedChild;
-  String? _generatedStory;
-  bool _isGenerating = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedChild = widget.children.first;
-  }
+class _AddChildDialogState extends State<AddChildDialog> {
+  final _nameController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _weightController = TextEditingController();
+  DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365 * 2));
+  String _gender = 'male';
+  bool _isLoading = false;
 
   @override
   void dispose() {
-    _themeController.dispose();
+    _nameController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 
-  void _generateStory() async {
-    if (_themeController.text.isEmpty) return;
+  Future<void> _save() async {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите имя ребенка')),
+      );
+      return;
+    }
 
-    setState(() {
-      _isGenerating = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      final locale = Provider.of<LocaleProvider>(context, listen: false).locale;
-
-      // Генерация через ИИ
-      final story = await AIService.generateStory(
-        childName: _selectedChild.name,
-        theme: _themeController.text,
-        language: locale.languageCode,
+      await FirebaseService.addChild(
+        name: _nameController.text,
+        birthDate: _birthDate,
+        gender: _gender,
+        height: double.tryParse(_heightController.text),
+        weight: double.tryParse(_weightController.text),
       );
 
-      setState(() {
-        _generatedStory = story;
-        _isGenerating = false;
-      });
-
-      // Сохраняем сказку и добавляем XP
-      await FirebaseService.saveStory(
-        childId: _selectedChild.id,
-        story: story,
-        theme: _themeController.text,
-      );
-      await FirebaseService.addXP(50);
-
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ребенок добавлен')),
+        );
+      }
     } catch (e) {
-      setState(() {
-        _isGenerating = false;
-      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: ${e.toString()}')),
+        SnackBar(content: Text('Ошибка: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 50,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
+    return AlertDialog(
+      title: const Text('Добавить ребенка'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Имя',
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 20),
-              Text(
-                loc.storyGenerator,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
+            ),
+            const SizedBox(height: 16),
 
-              // Выбор ребенка
-              if (widget.children.length > 1) ...[
-                DropdownButtonFormField<ChildProfile>(
-                  value: _selectedChild,
-                  decoration: const InputDecoration(
-                    labelText: 'Для кого сказка?',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: widget.children.map((child) => DropdownMenuItem(
-                    value: child,
-                    child: Text(child.name),
-                  )).toList(),
-                  onChanged: (child) {
-                    if (child != null) {
-                      setState(() => _selectedChild = child);
-                    }
-                  },
+            // Дата рождения
+            ListTile(
+              title: const Text('Дата рождения'),
+              subtitle: Text(
+                '${_birthDate.day}.${_birthDate.month}.${_birthDate.year}',
+              ),
+              trailing: const Icon(Icons.calendar_today),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _birthDate,
+                  firstDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+                  lastDate: DateTime.now(),
+                );
+                if (date != null) {
+                  setState(() => _birthDate = date);
+                }
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Пол
+            Row(
+              children: [
+                const Text('Пол: '),
+                Radio<String>(
+                  value: 'male',
+                  groupValue: _gender,
+                  onChanged: (value) => setState(() => _gender = value!),
                 ),
-                const SizedBox(height: 16),
+                const Text('Мальчик'),
+                Radio<String>(
+                  value: 'female',
+                  groupValue: _gender,
+                  onChanged: (value) => setState(() => _gender = value!),
+                ),
+                const Text('Девочка'),
               ],
+            ),
 
-              TextField(
-                controller: _themeController,
-                decoration: InputDecoration(
-                  labelText: loc.storyTheme,
-                  hintText: loc.storyHint,
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.auto_stories),
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isGenerating ? null : _generateStory,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    padding: const EdgeInsets.all(16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 16),
+
+            // Рост и вес
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _heightController,
+                    decoration: const InputDecoration(
+                      labelText: 'Рост (см)',
+                      border: OutlineInputBorder(),
                     ),
-                  ),
-                  child: _isGenerating
-                      ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        loc.generating,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ],
-                  )
-                      : Text(
-                    loc.generateStory,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    keyboardType: TextInputType.number,
                   ),
                 ),
-              ),
-              if (_generatedStory != null) ...[
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.purple.shade200,
-                      width: 2,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: TextField(
+                    controller: _weightController,
+                    decoration: const InputDecoration(
+                      labelText: 'Вес (кг)',
+                      border: OutlineInputBorder(),
                     ),
+                    keyboardType: TextInputType.number,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.auto_stories,
-                            color: Colors.purple.shade700,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _themeController.text,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.purple.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _generatedStory!,
-                        style: const TextStyle(fontSize: 16, height: 1.5),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          TextButton.icon(
-                            onPressed: () {
-                              // TODO: Реализовать сохранение в избранное
-                            },
-                            icon: const Icon(Icons.favorite_border),
-                            label: const Text('Сохранить'),
-                          ),
-                          TextButton.icon(
-                            onPressed: () {
-                              // TODO: Реализовать функцию "Поделиться"
-                            },
-                            icon: const Icon(Icons.share),
-                            label: const Text('Поделиться'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ).animate().fadeIn().slideY(begin: 0.1),
+                ),
               ],
-              const SizedBox(height: 20),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _save,
+          child: _isLoading
+              ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+              : const Text('Добавить'),
+        ),
+      ],
     );
   }
 }

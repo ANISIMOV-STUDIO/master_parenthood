@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
-
+import 'package:flutter/foundation.dart';
 
 // Провайдеры
 import 'providers/locale_provider.dart';
+import 'providers/auth_provider.dart';
 
 // Экраны
 import 'screens/home_screen.dart';
@@ -26,8 +27,9 @@ void main() async {
   // Инициализация Firebase
   try {
     await Firebase.initializeApp();
+    debugPrint('✅ Firebase initialized successfully');
   } catch (e) {
-    debugPrint('Firebase initialization error: $e'); // Changed print to debugPrint
+    debugPrint('❌ Firebase initialization error: $e');
   }
 
   // Загружаем сохраненные настройки
@@ -43,6 +45,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => LocaleProvider(Locale(languageCode)),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(),
         ),
         StreamProvider<bool>(
           create: (_) => FirebaseService.authStateChanges.map((user) => user != null),
@@ -140,16 +145,6 @@ class _MainScreenState extends State<MainScreen> {
     const AchievementsScreen(),
     const CommunityScreen(),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    // _loadActiveChild(); // Removed unused method call
-  }
-
-  // Future<void> _loadActiveChild() async { // Removed unused method
-  //   final profile = await FirebaseService.getUserProfile();
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -290,14 +285,133 @@ class AchievementsScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Здесь будет список достижений из Firestore
-              const Center(
-                child: Text('Достижения появятся здесь'),
-              ),
+              // Список достижений
+              _buildAchievementsList(context),
             ],
           );
         },
       ),
+    );
+  }
+
+  Widget _buildAchievementsList(BuildContext context) {
+    // Предопределенные достижения
+    final achievements = [
+      AchievementData(
+        id: 'first_story',
+        title: 'Первая сказка',
+        description: 'Создайте первую сказку для вашего ребенка',
+        icon: Icons.auto_stories,
+        color: Colors.purple,
+        xpReward: 100,
+      ),
+      AchievementData(
+        id: 'week_streak',
+        title: 'Неделя заботы',
+        description: 'Используйте приложение 7 дней подряд',
+        icon: Icons.calendar_today,
+        color: Colors.blue,
+        xpReward: 200,
+      ),
+      AchievementData(
+        id: 'ai_master',
+        title: 'Мастер советов',
+        description: 'Получите 10 советов от ИИ-ассистента',
+        icon: Icons.auto_awesome,
+        color: Colors.pink,
+        xpReward: 150,
+      ),
+      AchievementData(
+        id: 'photo_memories',
+        title: 'Фотоархив',
+        description: 'Загрузите 5 фотографий вашего ребенка',
+        icon: Icons.photo_library,
+        color: Colors.green,
+        xpReward: 100,
+      ),
+      AchievementData(
+        id: 'growth_tracker',
+        title: 'Следопыт роста',
+        description: 'Обновляйте данные роста и веса 3 месяца подряд',
+        icon: Icons.trending_up,
+        color: Colors.orange,
+        xpReward: 300,
+      ),
+    ];
+
+    return Column(
+      children: achievements.map((achievement) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: achievement.color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(
+                  achievement.icon,
+                  color: achievement.color,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      achievement.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      achievement.description,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                children: [
+                  Icon(
+                    Icons.stars,
+                    color: Colors.amber,
+                    size: 20,
+                  ),
+                  Text(
+                    '+${achievement.xpReward}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -346,10 +460,21 @@ class CommunityScreen extends StatelessWidget {
   }
 }
 
-// Расширение для UserProfile
-extension UserProfileExtension on UserProfile {
-  String? get activeChildId {
-    // TODO: Добавить поле activeChildId в UserProfile
-    return null;
-  }
+// Модель достижения
+class AchievementData {
+  final String id;
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final int xpReward;
+
+  AchievementData({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.xpReward,
+  });
 }

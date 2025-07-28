@@ -4,14 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart'; // Added for debugPrint
+import 'package:flutter/foundation.dart';
 
 class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseStorage _storage = FirebaseStorage.instance;
   static final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  // Firebase Functions URLs - замените на ваши реальные URLs
+  static const String _functionsBaseUrl = 'https://your-project.cloudfunctions.net';
 
   // Getters
   static User? get currentUser => _auth.currentUser;
@@ -121,8 +126,6 @@ class FirebaseService {
     required String vkEmail,
   }) async {
     try {
-      // Для VK нужно использовать custom token через Firebase Functions
-      // Это требует настройки серверной части
       final customToken = await _getVKCustomToken(
         userId: vkUserId,
         accessToken: vkAccessToken,
@@ -141,12 +144,9 @@ class FirebaseService {
   // Яндекс авторизация (через Custom Auth)
   static Future<User?> signInWithYandex({
     required String accessToken,
-    required String userId,
   }) async {
     try {
-      // Для Яндекс также нужен custom token через Firebase Functions
       final customToken = await _getYandexCustomToken(
-        userId: userId,
         accessToken: accessToken,
       );
 
@@ -194,7 +194,7 @@ class FirebaseService {
         'subscription': 'free',
         'provider': user.providerData.first.providerId,
         ...?additionalData,
-        'activeChildId': null, // Added activeChildId field
+        'activeChildId': null,
       };
 
       await userDoc.set(userData);
@@ -238,6 +238,36 @@ class FirebaseService {
         .map((doc) => doc.exists ? UserProfile.fromFirestore(doc) : null);
   }
 
+  // Установка активного ребенка
+  static Future<void> setActiveChild(String childId) async {
+    if (!isAuthenticated) return;
+
+    await _firestore.collection('users').doc(currentUserId!).update({
+      'activeChildId': childId,
+    });
+  }
+
+  // Получение активного ребенка
+  static Future<ChildProfile?> getActiveChild() async {
+    if (!isAuthenticated) return null;
+
+    final userDoc = await _firestore.collection('users').doc(currentUserId!).get();
+    final activeChildId = userDoc.data()?['activeChildId'];
+
+    if (activeChildId != null) {
+      return await getChild(activeChildId);
+    }
+
+    // Если активный ребенок не установлен, возвращаем первого
+    final children = await getChildrenStream().first;
+    if (children.isNotEmpty) {
+      await setActiveChild(children.first.id);
+      return children.first;
+    }
+
+    return null;
+  }
+
   // ===== УПРАВЛЕНИЕ ДЕТЬМИ =====
 
   // Добавление ребенка
@@ -277,10 +307,11 @@ class FirebaseService {
 
     await childRef.set(childData);
 
-    // Обновляем активного ребенка
-    await _firestore.collection('users').doc(currentUserId!).update({
-      'activeChildId': childRef.id,
-    });
+    // Если это первый ребенок, делаем его активным
+    final userDoc = await _firestore.collection('users').doc(currentUserId!).get();
+    if (userDoc.data()?['activeChildId'] == null) {
+      await setActiveChild(childRef.id);
+    }
 
     return childRef.id;
   }
@@ -399,15 +430,15 @@ class FirebaseService {
   // ===== СКАЗКИ =====
 
   // Сохранение сказки
-  static Future<void> saveStory({
+  static Future<String> saveStory({
     required String childId,
     required String story,
     required String theme,
     String? imageUrl,
   }) async {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) throw Exception('Не авторизован');
 
-    await _firestore
+    final storyRef = await _firestore
         .collection('users')
         .doc(currentUserId!)
         .collection('stories')
@@ -422,6 +453,25 @@ class FirebaseService {
 
     // Добавляем XP за создание сказки
     await addXP(50);
+
+    return storyRef.id;
+  }
+
+  // Переключение избранного статуса сказки
+  static Future<void> toggleStoryFavorite(String storyId) async {
+    if (!isAuthenticated) return;
+
+    final storyRef = _firestore
+        .collection('users')
+        .doc(currentUserId!)
+        .collection('stories')
+        .doc(storyId);
+
+    final storyDoc = await storyRef.get();
+    if (storyDoc.exists) {
+      final currentFavorite = storyDoc.data()?['isFavorite'] ?? false;
+      await storyRef.update({'isFavorite': !currentFavorite});
+    }
   }
 
   // Stream историй
@@ -435,6 +485,22 @@ class FirebaseService {
         .where('childId', isEqualTo: childId)
         .orderBy('createdAt', descending: true)
         .limit(50)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+        .map((doc) => StoryData.fromFirestore(doc))
+        .toList());
+  }
+
+  // Получение избранных сказок
+  static Stream<List<StoryData>> getFavoriteStoriesStream() {
+    if (!isAuthenticated) return Stream.value([]);
+
+    return _firestore
+        .collection('users')
+        .doc(currentUserId!)
+        .collection('stories')
+        .where('isFavorite', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
         .map((doc) => StoryData.fromFirestore(doc))
@@ -456,7 +522,7 @@ class FirebaseService {
       final url = await uploadTask.ref.getDownloadURL();
       return url;
     } catch (e) {
-      debugPrint('Ошибка загрузки изображения: $e'); // Changed print to debugPrint
+      debugPrint('Ошибка загрузки изображения: $e');
       return null;
     }
   }
@@ -516,48 +582,56 @@ class FirebaseService {
 
   // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
 
-  // Получение custom token для VK (требует настройки Firebase Functions)
+  // Получение custom token для VK
   static Future<String> _getVKCustomToken({
     required String userId,
     required String accessToken,
     required String email,
   }) async {
-    // TODO: Вызов вашей Firebase Function для генерации custom token
-    // Пример:
-    // final response = await http.post(
-    //   Uri.parse('https://your-project.cloudfunctions.net/createVKCustomToken'),
-    //   headers: {'Content-Type': 'application/json'},
-    //   body: jsonEncode({
-    //     'userId': userId,
-    //     'accessToken': accessToken,
-    //     'email': email,
-    //   }),
-    // );
-    // final data = jsonDecode(response.body);
-    // return data['customToken'];
+    try {
+      final response = await http.post(
+        Uri.parse('$_functionsBaseUrl/createVKCustomToken'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userId': userId,
+          'accessToken': accessToken,
+          'email': email,
+        }),
+      );
 
-    throw UnimplementedError('Требуется настройка Firebase Functions для VK авторизации');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['customToken'];
+      } else {
+        throw Exception('Ошибка получения токена: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Ошибка VK авторизации: $e');
+    }
   }
 
   // Получение custom token для Яндекс
   static Future<String> _getYandexCustomToken({
-    required String userId,
     required String accessToken,
   }) async {
-    // TODO: Вызов вашей Firebase Function
-    // Пример:
-    // final response = await http.post(
-    //   Uri.parse('https://your-project.cloudfunctions.net/createYandexCustomToken'),
-    //   headers: {'Content-Type': 'application/json'},
-    //   body: jsonEncode({
-    //     'userId': userId,
-    //     'accessToken': accessToken,
-    //   }),
-    // );
-    // final data = jsonDecode(response.body);
-    // return data['customToken'];
+    try {
+      final response = await http.post(
+        Uri.parse('$_functionsBaseUrl/createYandexCustomToken'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'accessToken': accessToken,
+        }),
+      );
 
-    throw UnimplementedError('Требуется настройка Firebase Functions для Яндекс авторизации');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['customToken'];
+      } else {
+        throw Exception('Ошибка получения токена: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Ошибка Яндекс авторизации: $e');
+    }
   }
 
   // Обработка ошибок аутентификации
@@ -599,7 +673,7 @@ class UserProfile {
   final DateTime createdAt;
   final DateTime lastLogin;
   final String provider;
-  final String? activeChildId; // Added activeChildId field
+  final String? activeChildId;
 
   UserProfile({
     required this.uid,
@@ -612,7 +686,7 @@ class UserProfile {
     required this.createdAt,
     required this.lastLogin,
     required this.provider,
-    this.activeChildId, // Added activeChildId to constructor
+    this.activeChildId,
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
@@ -628,7 +702,7 @@ class UserProfile {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLogin: (data['lastLogin'] as Timestamp?)?.toDate() ?? DateTime.now(),
       provider: data['provider'] ?? 'email',
-      activeChildId: data['activeChildId'], // Read activeChildId from data
+      activeChildId: data['activeChildId'],
     );
   }
 
@@ -675,6 +749,10 @@ class ChildProfile {
     return months;
   }
 
+  int get ageInYears {
+    return ageInMonths ~/ 12;
+  }
+
   String get ageFormatted {
     final months = ageInMonths;
     final years = months ~/ 12;
@@ -685,6 +763,27 @@ class ChildProfile {
     } else {
       return '$remainingMonths мес.';
     }
+  }
+
+  String get ageFormattedShort {
+    final years = ageInYears;
+    if (years >= 1) {
+      return '$years ${_getYearWord(years)}';
+    } else {
+      return '$ageInMonths ${_getMonthWord(ageInMonths)}';
+    }
+  }
+
+  String _getYearWord(int years) {
+    if (years % 10 == 1 && years % 100 != 11) return 'год';
+    if ([2, 3, 4].contains(years % 10) && ![12, 13, 14].contains(years % 100)) return 'года';
+    return 'лет';
+  }
+
+  String _getMonthWord(int months) {
+    if (months % 10 == 1 && months % 100 != 11) return 'месяц';
+    if ([2, 3, 4].contains(months % 10) && ![12, 13, 14].contains(months % 100)) return 'месяца';
+    return 'месяцев';
   }
 
   factory ChildProfile.fromFirestore(Map<String, dynamic> data, String id) {

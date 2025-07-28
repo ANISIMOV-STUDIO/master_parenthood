@@ -1,11 +1,20 @@
 // lib/services/ai_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 class AIService {
-  // ВАЖНО: В продакшене храните ключ в безопасном месте (например, Firebase Remote Config)
-  static const String _apiKey = 'YOUR_OPENAI_API_KEY';
+  // Для продакшена используйте Firebase Remote Config или переменные окружения
+  // Временно можно установить ключ здесь для тестирования
+  static const String _apiKey = const String.fromEnvironment(
+    'OPENAI_API_KEY',
+    defaultValue: '', // Установите ваш ключ здесь или через --dart-define
+  );
+
   static const String _apiUrl = 'https://api.openai.com/v1/chat/completions';
+
+  // Проверка наличия API ключа
+  static bool get hasApiKey => _apiKey.isNotEmpty;
 
   // Генерация персонализированной сказки
   static Future<String> generateStory({
@@ -13,6 +22,11 @@ class AIService {
     required String theme,
     required String language,
   }) async {
+    if (!hasApiKey) {
+      debugPrint('⚠️ OpenAI API key not configured');
+      return _getFallbackStory(childName, theme, language);
+    }
+
     try {
       final response = await http.post(
         Uri.parse(_apiUrl),
@@ -46,10 +60,11 @@ class AIService {
         final data = jsonDecode(response.body);
         return data['choices'][0]['message']['content'];
       } else {
+        debugPrint('OpenAI API error: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to generate story: ${response.statusCode}');
       }
     } catch (e) {
-      // В случае ошибки возвращаем заранее подготовленную сказку
+      debugPrint('Error generating story: $e');
       return _getFallbackStory(childName, theme, language);
     }
   }
@@ -60,6 +75,11 @@ class AIService {
     required String childAge,
     required String language,
   }) async {
+    if (!hasApiKey) {
+      debugPrint('⚠️ OpenAI API key not configured');
+      return _getFallbackAdvice(topic, language);
+    }
+
     try {
       final response = await http.post(
         Uri.parse(_apiUrl),
@@ -92,9 +112,11 @@ class AIService {
         final data = jsonDecode(response.body);
         return data['choices'][0]['message']['content'];
       } else {
+        debugPrint('OpenAI API error: ${response.statusCode}');
         throw Exception('Failed to get advice: ${response.statusCode}');
       }
     } catch (e) {
+      debugPrint('Error getting advice: $e');
       return _getFallbackAdvice(topic, language);
     }
   }
@@ -104,6 +126,11 @@ class AIService {
     required Map<String, dynamic> childData,
     required String language,
   }) async {
+    if (!hasApiKey) {
+      debugPrint('⚠️ OpenAI API key not configured');
+      return _getFallbackAnalysis(language);
+    }
+
     try {
       final response = await http.post(
         Uri.parse(_apiUrl),
@@ -151,6 +178,7 @@ class AIService {
         throw Exception('Failed to analyze development');
       }
     } catch (e) {
+      debugPrint('Error analyzing development: $e');
       return _getFallbackAnalysis(language);
     }
   }
@@ -170,6 +198,14 @@ class AIService {
           'Un día, $childName emprendió una aventura mágica. '
           'En el camino, $childName conoció amigos amables que ayudaron a encontrar el tesoro más grande: '
           '¡la verdadera amistad y alegría! Y todos vivieron felices para siempre.',
+      'fr': 'Il était une fois un petit $childName qui aimait $theme. '
+          'Un jour, $childName est parti pour une aventure magique. '
+          'En chemin, $childName a rencontré des amis gentils qui ont aidé à trouver le plus grand trésor - '
+          'la vraie amitié et la joie. Et ils vécurent heureux pour toujours!',
+      'de': 'Es war einmal ein kleiner $childName, der $theme liebte. '
+          'Eines Tages ging $childName auf ein magisches Abenteuer. '
+          'Auf dem Weg traf $childName freundliche Freunde, die halfen, den größten Schatz zu finden - '
+          'wahre Freundschaft und Freude. Und sie lebten glücklich bis ans Ende ihrer Tage!',
     };
 
     return stories[language] ?? stories['en']!;
@@ -186,6 +222,12 @@ class AIService {
       'es': 'Cada niño se desarrolla a su propio ritmo. '
           'Es importante crear un ambiente seguro y amoroso donde su hijo pueda explorar. '
           '¡Sea paciente, consistente y recuerde - su amor y apoyo son lo más importante!',
+      'fr': 'Chaque enfant se développe à son propre rythme. '
+          'Il est important de créer un environnement sûr et aimant où votre enfant peut explorer. '
+          'Soyez patient, cohérent et rappelez-vous - votre amour et votre soutien comptent le plus!',
+      'de': 'Jedes Kind entwickelt sich in seinem eigenen Tempo. '
+          'Es ist wichtig, eine sichere und liebevolle Umgebung zu schaffen, in der Ihr Kind erkunden kann. '
+          'Seien Sie geduldig, konsequent und denken Sie daran - Ihre Liebe und Unterstützung sind am wichtigsten!',
     };
 
     return advice[language] ?? advice['en']!;
@@ -217,6 +259,45 @@ class AIService {
           'Continue reading books together',
           'Encourage independence',
           'Play educational games'
+        ],
+      },
+      'es': {
+        'summary': 'Su hijo se está desarrollando bien y cumple con los hitos apropiados para su edad.',
+        'strengths': [
+          'Buen desarrollo físico',
+          'Exploración activa del mundo',
+          'Desarrollo de habilidades lingüísticas'
+        ],
+        'suggestions': [
+          'Continúe leyendo libros juntos',
+          'Fomente la independencia',
+          'Juegue juegos educativos'
+        ],
+      },
+      'fr': {
+        'summary': 'Votre enfant se développe bien et atteint les étapes appropriées à son âge.',
+        'strengths': [
+          'Bon développement physique',
+          'Exploration active du monde',
+          'Développement des compétences linguistiques'
+        ],
+        'suggestions': [
+          'Continuez à lire des livres ensemble',
+          'Encouragez l\'indépendance',
+          'Jouez à des jeux éducatifs'
+        ],
+      },
+      'de': {
+        'summary': 'Ihr Kind entwickelt sich gut und erreicht altersgerechte Meilensteine.',
+        'strengths': [
+          'Gute körperliche Entwicklung',
+          'Aktive Welterkundung',
+          'Sprachentwicklung'
+        ],
+        'suggestions': [
+          'Lesen Sie weiterhin gemeinsam Bücher',
+          'Fördern Sie die Unabhängigkeit',
+          'Spielen Sie Lernspiele'
         ],
       },
     };

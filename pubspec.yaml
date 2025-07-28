@@ -11,9 +11,6 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  url_launcher: ^6.2.5 # Added url_launcher dependency
-  cached_network_image: ^3.3.1 # Added cached_network_image dependency
-  image_picker: ^1.0.7 # Added image_picker dependency
 
   # State Management
   provider: ^6.0.5
@@ -27,6 +24,7 @@ dependencies:
 
   # Networking
   dio: ^5.3.2
+  http: ^1.1.0
 
   # Firebase
   firebase_core: ^2.24.2
@@ -36,11 +34,12 @@ dependencies:
   google_sign_in: ^6.1.5
   flutter_facebook_auth: ^6.1.1
 
-  # AI Integration (OpenAI)
-  http: ^1.1.0
-
   # Utilities
   intl: ^0.20.2
+  url_launcher: ^6.2.5
+  cached_network_image: ^3.3.1
+  image_picker: ^1.0.7
+  share_plus: ^7.2.1
 
   # Icons
   cupertino_icons: ^1.0.6
@@ -53,3 +52,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+
+  # Добавьте ассеты для иконок социальных сетей (если будете использовать)
+  # assets:
+  #   - assets/icons/
