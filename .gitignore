@@ -43,3 +43,66 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+
+# Environment variables
+.env
+*.env
+.env.*
+
+# API Keys
+run_dev.sh
+run_dev.bat
+
+# Android signing
+key.properties
+**/*.keystore
+**/*.jks
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Podfile.lock
+
+# Coverage
+coverage/
+*.lcov
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Flutter/Dart specific
+.packages
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Web related
+lib/generated_plugin_registrant.dart
+
+# Testing
+test/.test_coverage.dart
+test/coverage_helper_test.dart
+
+# Functions
+functions/node_modules/
+functions/.eslintrc.js
+functions/lib/
+functions/tsconfig.tsbuildinfo
+
+# Personal notes and outdated docs
+WINDOWS_FIX.md
+ERRORS_FIXED.md
+SOLUTION_SUMMARY.md
+REMOVE_MOCKS_GUIDE.md
