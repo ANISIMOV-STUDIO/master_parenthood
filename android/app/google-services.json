@@ -1,29 +1,47 @@
 {
   "project_info": {
-    "project_number": "123456789",
-    "project_id": "master-parenthood-test",
-    "storage_bucket": "master-parenthood-test.appspot.com"
+    "project_number": "767647095347",
+    "project_id": "master-parenthood",
+    "storage_bucket": "master-parenthood.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789:android:abcdef123456",
+        "mobilesdk_app_id": "1:767647095347:android:79f3e75eb23e9849086146",
         "android_client_info": {
           "package_name": "com.example.master_parenthood"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "767647095347-hf3soo5tb4740ascqjp1kpqksdgikj0m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.master_parenthood",
+            "certificate_hash": "6296d2e521a8342370bef1e0551c6034497a8dcf"
+          }
+        },
+        {
+          "client_id": "767647095347-gogjfoqrmrtstpc2ipk2fligghdsn9i5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyKeyForTestingOnly"
+          "current_key": "AIzaSyCihWyBYV0WFYUGbERlqDNuXs1Qw1sxabU"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "767647095347-gogjfoqrmrtstpc2ipk2fligghdsn9i5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
   ],
   "configuration_version": "1"
-} 
+}
