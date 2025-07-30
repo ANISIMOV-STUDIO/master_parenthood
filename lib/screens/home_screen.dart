@@ -8,6 +8,7 @@ import '../providers/locale_provider.dart';
 import '../services/ai_service.dart';
 import '../services/firebase_service.dart';
 import '../main.dart';
+import 'challenges_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -74,7 +75,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         icon: Icons.emoji_events,
         title: loc.challenges,
         gradient: [Colors.orange, Colors.red],
-        onTap: () => _showComingSoon(context, loc.challenges),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ChallengesScreen()),
+        ),
       ),
       FeatureItem(
         icon: Icons.menu_book,
