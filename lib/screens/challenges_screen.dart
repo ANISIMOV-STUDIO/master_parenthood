@@ -43,155 +43,31 @@ class _ChallengesScreenState extends State<ChallengesScreen>
     final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).primaryColor.withValues(alpha: 0.1),
-              Theme.of(context).primaryColor.withValues(alpha: 0.05),
-            ],
-          ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(
+          loc.challenges,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Заголовок
-              _buildHeader(context, loc),
-
-              // Табы
-              _buildTabs(context),
-
-              // Контент
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _DailyChallengesTab(childId: _selectedChildId),
-                    _WeeklyChallengesTab(childId: _selectedChildId),
-                    _CompletedChallengesTab(childId: _selectedChildId),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        centerTitle: true,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Ежедневные'),
+            Tab(text: 'Недельные'),
+            Tab(text: 'Достижения'),
+          ],
+          indicatorColor: Theme.of(context).primaryColor,
+          labelColor: Theme.of(context).primaryColor,
+          unselectedLabelColor: Colors.grey,
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, AppLocalizations loc) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc.challenges,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                StreamBuilder<List<ChildProfile>>(
-                  stream: FirebaseService.getChildrenStream(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-
-                    final children = snapshot.data!;
-                    return DropdownButton<String>(
-                      value: _selectedChildId ?? children.first.id,
-                      underline: Container(),
-                      isDense: true,
-                      items: children
-                          .map((child) => DropdownMenuItem(
-                        value: child.id,
-                        child: Text(
-                          'Для ${child.name}',
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ))
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() => _selectedChildId = value);
-                      },
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          // Счетчик выполненных
-          StreamBuilder<int>(
-            stream: ChallengesService.getCompletedTodayStream(),
-            builder: (context, snapshot) {
-              final completed = snapshot.data ?? 0;
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      '$completed',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabs(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TabBar(
+      body: TabBarView(
         controller: _tabController,
-        indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          gradient: LinearGradient(
-            colors: [Colors.orange.shade400, Colors.red.shade400],
-          ),
-        ),
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.grey,
-        tabs: const [
-          Tab(text: 'Ежедневные'),
-          Tab(text: 'Недельные'),
-          Tab(text: 'Выполненные'),
+        children: [
+          _DailyChallengesTab(childId: _selectedChildId),
+          _WeeklyChallengesTab(childId: _selectedChildId),
+          _AchievementsTab(childId: _selectedChildId),
         ],
       ),
     );
@@ -280,7 +156,7 @@ class _WeeklyChallengesTab extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.calendar_month,
+                  Icons.flag,
                   size: 64,
                   color: Colors.grey.shade400,
                 ),
@@ -313,104 +189,57 @@ class _WeeklyChallengesTab extends StatelessWidget {
   }
 }
 
-// Вкладка выполненных челленджей
-class _CompletedChallengesTab extends StatelessWidget {
+// Вкладка достижений
+class _AchievementsTab extends StatelessWidget {
   final String? childId;
 
-  const _CompletedChallengesTab({this.childId});
+  const _AchievementsTab({this.childId});
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Challenge>>(
-      stream: ChallengesService.getCompletedChallengesStream(childId: childId),
+    return StreamBuilder<List<Achievement>>(
+      stream: FirebaseService.getAchievementsStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final challenges = snapshot.data ?? [];
-        if (challenges.isEmpty) {
+        final achievements = snapshot.data ?? [];
+        if (achievements.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.history,
-                  size: 64,
-                  color: Colors.grey.shade400,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Вы еще не выполнили ни одного челленджа',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Начните с ежедневных заданий!',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-              ],
+            child: Text(
+              'Пока нет достижений',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey.shade600,
+              ),
             ),
           );
         }
 
-        // Группировка по датам
-        final groupedChallenges = <String, List<Challenge>>{};
-        for (final challenge in challenges) {
-          final dateKey = _formatDate(challenge.completedAt!);
-          groupedChallenges[dateKey] ??= [];
-          groupedChallenges[dateKey]!.add(challenge);
-        }
-
-        return ListView.builder(
+        return GridView.builder(
           padding: const EdgeInsets.all(20),
-          itemCount: groupedChallenges.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 0.8,
+          ),
+          itemCount: achievements.length,
           itemBuilder: (context, index) {
-            final date = groupedChallenges.keys.elementAt(index);
-            final dateChallenges = groupedChallenges[date]!;
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    date,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                ...dateChallenges.map((challenge) => _CompletedChallengeCard(
-                  challenge: challenge,
-                )),
-                const SizedBox(height: 20),
-              ],
+            final achievement = achievements[index];
+            return _AchievementCard(
+              achievement: achievement,
+              index: index,
             );
           },
         );
       },
     );
   }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date).inDays;
-
-    if (difference == 0) return 'Сегодня';
-    if (difference == 1) return 'Вчера';
-    if (difference < 7) return '$difference дней назад';
-
-    return '${date.day}.${date.month}.${date.year}';
-  }
 }
 
-// Карточка челленджа
+// Карточка ежедневного челленджа
 class _ChallengeCard extends StatelessWidget {
   final Challenge challenge;
   final int index;
@@ -419,6 +248,62 @@ class _ChallengeCard extends StatelessWidget {
     required this.challenge,
     required this.index,
   });
+
+  void _showChallengeDetails(BuildContext context, Challenge challenge) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ChallengeDetailsSheet(challenge: challenge),
+    );
+  }
+
+  Future<void> _completeChallenge(BuildContext context, Challenge challenge) async {
+    await ChallengesService.completeChallenge(challenge.id);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Челлендж выполнен! +${challenge.xpReward} XP'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Color _getChallengeColor(String category) {
+    switch (category) {
+      case 'physical':
+        return Colors.orange;
+      case 'cognitive':
+        return Colors.blue;
+      case 'social':
+        return Colors.green;
+      case 'creative':
+        return Colors.purple;
+      default:
+        return Colors.teal;
+    }
+  }
+
+  List<Color> _getChallengeGradient(String category) {
+    final color = _getChallengeColor(category);
+    return [color.withOpacity(0.3), color.withOpacity(0.1)];
+  }
+
+  IconData _getChallengeIcon(String category) {
+    switch (category) {
+      case 'physical':
+        return Icons.directions_run;
+      case 'cognitive':
+        return Icons.psychology;
+      case 'social':
+        return Icons.people;
+      case 'creative':
+        return Icons.palette;
+      default:
+        return Icons.star;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -435,7 +320,7 @@ class _ChallengeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: _getChallengeColor(challenge.category).withValues(alpha: 0.2),
+            color: _getChallengeColor(challenge.category).withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -492,27 +377,8 @@ class _ChallengeCard extends StatelessWidget {
                               Text(
                                 '+${challenge.xpReward} XP',
                                 style: TextStyle(
-                                  color: Colors.amber.shade700,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getChallengeColor(challenge.category)
-                                      .withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  _getCategoryName(challenge.category),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: _getChallengeColor(challenge.category),
-                                  ),
+                                  fontSize: 14,
+                                  color: Colors.grey.shade600,
                                 ),
                               ),
                             ],
@@ -524,7 +390,7 @@ class _ChallengeCard extends StatelessWidget {
                       Container(
                         width: 40,
                         height: 40,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
                         ),
@@ -568,7 +434,7 @@ class _ChallengeCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: Colors.white.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -576,16 +442,16 @@ class _ChallengeCard extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.lightbulb_outline,
-                          size: 20,
-                          color: Colors.orange,
+                          size: 18,
+                          color: _getChallengeColor(challenge.category),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            challenge.tips!.first,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade700,
+                            'Совет: ${challenge.tips}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
                             ),
                           ),
                         ),
@@ -598,100 +464,9 @@ class _ChallengeCard extends StatelessWidget {
           ),
         ),
       ),
-    ).animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.2);
-  }
-
-  List<Color> _getChallengeGradient(String category) {
-    switch (category) {
-      case 'physical':
-        return [Colors.blue.shade100, Colors.blue.shade50];
-      case 'creative':
-        return [Colors.purple.shade100, Colors.purple.shade50];
-      case 'social':
-        return [Colors.pink.shade100, Colors.pink.shade50];
-      case 'cognitive':
-        return [Colors.orange.shade100, Colors.orange.shade50];
-      case 'emotional':
-        return [Colors.teal.shade100, Colors.teal.shade50];
-      default:
-        return [Colors.grey.shade100, Colors.grey.shade50];
-    }
-  }
-
-  Color _getChallengeColor(String category) {
-    switch (category) {
-      case 'physical':
-        return Colors.blue;
-      case 'creative':
-        return Colors.purple;
-      case 'social':
-        return Colors.pink;
-      case 'cognitive':
-        return Colors.orange;
-      case 'emotional':
-        return Colors.teal;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getChallengeIcon(String category) {
-    switch (category) {
-      case 'physical':
-        return Icons.directions_run;
-      case 'creative':
-        return Icons.palette;
-      case 'social':
-        return Icons.people;
-      case 'cognitive':
-        return Icons.psychology;
-      case 'emotional':
-        return Icons.favorite;
-      default:
-        return Icons.stars;
-    }
-  }
-
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'physical':
-        return 'Физическое';
-      case 'creative':
-        return 'Творческое';
-      case 'social':
-        return 'Социальное';
-      case 'cognitive':
-        return 'Познавательное';
-      case 'emotional':
-        return 'Эмоциональное';
-      default:
-        return 'Общее';
-    }
-  }
-
-  void _completeChallenge(BuildContext context, Challenge challenge) async {
-    // Анимация завершения
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _ChallengeCompletionDialog(
-        challenge: challenge,
-      ),
-    );
-
-    // Отмечаем как выполненное
-    await ChallengesService.completeChallenge(challenge.id);
-  }
-
-  void _showChallengeDetails(BuildContext context, Challenge challenge) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (context) => _ChallengeDetailsSheet(challenge: challenge),
-    );
+    ).animate()
+        .fadeIn(delay: Duration(milliseconds: index * 100))
+        .slideX(begin: 0.3, delay: Duration(milliseconds: index * 100));
   }
 }
 
@@ -707,7 +482,7 @@ class _WeeklyChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = challenge.progress ?? 0;
+    final progress = challenge.completedCount ?? 0;
     final target = challenge.targetCount ?? 7;
     final progressPercent = (progress / target).clamp(0.0, 1.0);
 
@@ -721,7 +496,7 @@ class _WeeklyChallengeCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.indigo.withValues(alpha: 0.2),
+            color: Colors.indigo.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -758,37 +533,65 @@ class _WeeklyChallengeCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.stars,
-                          size: 16,
-                          color: Colors.amber,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '+${challenge.xpReward} XP',
-                          style: TextStyle(
-                            color: Colors.amber.shade700,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      '$progress из $target дней',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Text(
-                '$progress/$target',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.indigo,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.stars,
+                      size: 16,
+                      color: Colors.amber.shade700,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '+${challenge.xpReward}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber.shade700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+          // Прогресс бар
+          Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              widthFactor: progressPercent,
+              alignment: Alignment.centerLeft,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.indigo, Colors.blue],
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             challenge.description,
             style: TextStyle(
@@ -796,153 +599,11 @@ class _WeeklyChallengeCard extends StatelessWidget {
               color: Colors.grey.shade700,
             ),
           ),
-          const SizedBox(height: 16),
-          // Прогресс бар
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Прогресс',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  Text(
-                    '${(progressPercent * 100).toInt()}%',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.indigo,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: progressPercent,
-                  backgroundColor: Colors.indigo.withValues(alpha: 0.2),
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
-                  minHeight: 10,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Дни недели
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(7, (index) {
-              final isCompleted = index < progress;
-              return Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isCompleted ? Colors.indigo : Colors.white,
-                  border: Border.all(
-                    color: Colors.indigo,
-                    width: 2,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: isCompleted
-                      ? const Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 20,
-                  )
-                      : Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: Colors.indigo,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
         ],
       ),
-    ).animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.2);
-  }
-}
-
-// Карточка выполненного челленджа
-class _CompletedChallengeCard extends StatelessWidget {
-  final Challenge challenge;
-
-  const _CompletedChallengeCard({required this.challenge});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.green.withValues(alpha: 0.3),
-          width: 2,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.check_circle,
-              color: Colors.green,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  challenge.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Получено ${challenge.xpReward} XP',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            _formatTime(challenge.completedAt!),
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    ).animate()
+        .fadeIn(delay: Duration(milliseconds: index * 100))
+        .slideX(begin: 0.3, delay: Duration(milliseconds: index * 100));
   }
 }
 
@@ -953,35 +614,29 @@ class _ChallengeCompletionDialog extends StatefulWidget {
   const _ChallengeCompletionDialog({required this.challenge});
 
   @override
-  State<_ChallengeCompletionDialog> createState() =>
-      _ChallengeCompletionDialogState();
+  State<_ChallengeCompletionDialog> createState() => _ChallengeCompletionDialogState();
 }
 
-class _ChallengeCompletionDialogState
-    extends State<_ChallengeCompletionDialog> with TickerProviderStateMixin {
+class _ChallengeCompletionDialogState extends State<_ChallengeCompletionDialog>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late AnimationController _starController;
-  final _noteController = TextEditingController();
-  int _rating = 5;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..forward();
-    _starController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat();
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _starController.dispose();
-    _noteController.dispose();
     super.dispose();
   }
 
@@ -989,150 +644,172 @@ class _ChallengeCompletionDialogState
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _controller.value,
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Анимированная звезда
-                  AnimatedBuilder(
-                    animation: _starController,
-                    builder: (context, child) {
-                      return Transform.rotate(
-                        angle: _starController.value * 2 * 3.14159,
-                        child: Icon(
-                          Icons.star,
-                          size: 80,
-                          color: Colors.amber,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Отлично!',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+      child: Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: _controller.value,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: const BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 60,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Отлично!',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '+${widget.challenge.xpReward} XP',
+              style: TextStyle(
+                fontSize: 24,
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ).animate()
+          .fadeIn()
+          .scale(begin: const Offset(0.8, 0.8), end: const Offset(1, 1)),
+    );
+  }
+}
+
+// Карточка достижения
+class _AchievementCard extends StatelessWidget {
+  final Achievement achievement;
+  final int index;
+
+  const _AchievementCard({
+    required this.achievement,
+    required this.index,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isUnlocked = achievement.unlocked;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isUnlocked
+              ? [Colors.amber.shade200, Colors.amber.shade100]
+              : [Colors.grey.shade300, Colors.grey.shade200],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: (isUnlocked ? Colors.amber : Colors.grey).withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _showAchievementDetails(context, achievement),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  achievement.icon ?? Icons.emoji_events,
+                  size: 48,
+                  color: isUnlocked ? Colors.amber.shade700 : Colors.grey,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  achievement.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isUnlocked ? Colors.amber.shade900 : Colors.grey.shade600,
+                  ),
+                ),
+                if (achievement.progress != null && !isUnlocked) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    'Вы выполнили челлендж',
+                    '${achievement.progress}%',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 10,
                       color: Colors.grey.shade600,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.stars, color: Colors.amber),
-                        const SizedBox(width: 8),
-                        Text(
-                          '+${widget.challenge.xpReward} XP',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.amber.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Как прошло?',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  // Рейтинг
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      return IconButton(
-                        onPressed: () {
-                          setState(() => _rating = index + 1);
-                        },
-                        icon: Icon(
-                          index < _rating ? Icons.star : Icons.star_border,
-                          color: Colors.amber,
-                          size: 36,
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 16),
-                  // Заметка
-                  TextField(
-                    controller: _noteController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      hintText: 'Добавьте заметку (необязательно)',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Пропустить'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            await ChallengesService.rateChallenge(
-                              widget.challenge.id,
-                              _rating,
-                              _noteController.text,
-                            );
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            padding: const EdgeInsets.all(16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Готово',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
-              ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
+      ),
+    ).animate()
+        .fadeIn(delay: Duration(milliseconds: index * 100))
+        .scale(delay: Duration(milliseconds: index * 100));
+  }
+
+  void _showAchievementDetails(BuildContext context, Achievement achievement) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(achievement.title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              achievement.icon ?? Icons.emoji_events,
+              size: 64,
+              color: achievement.unlocked ? Colors.amber : Colors.grey,
+            ),
+            const SizedBox(height: 16),
+            Text(achievement.description),
+            if (achievement.unlockedAt != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Получено: ${_formatDate(achievement.unlockedAt!)}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Закрыть'),
+          ),
+        ],
       ),
     );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 }
 
@@ -1147,6 +824,7 @@ class _ChallengeDetailsSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       child: Column(
@@ -1180,53 +858,92 @@ class _ChallengeDetailsSheet extends StatelessWidget {
             ),
           ),
           if (challenge.tips != null && challenge.tips!.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Text(
-              'Советы',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            const SizedBox(height: 12),
-            ...challenge.tips!.map((tip) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.check_circle,
-                    color: Colors.green,
-                    size: 20,
+                  Icon(
+                    Icons.tips_and_updates,
+                    color: Colors.blue.shade700,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      tip,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade700,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Советы для выполнения:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          challenge.tips!,
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            )),
+            ),
           ],
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade200,
+                    foregroundColor: Colors.black87,
+                    padding: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Позже'),
                 ),
               ),
-              child: const Text('Понятно'),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await ChallengesService.completeChallenge(challenge.id);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Челлендж выполнен! +${challenge.xpReward} XP'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Готово',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
         ],
       ),
     );

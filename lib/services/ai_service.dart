@@ -49,10 +49,10 @@ class AIService {
             {
               'role': 'user',
               'content': 'Create a bedtime story for a child named $childName about $theme.',
-            },
+            }
           ],
-          'max_tokens': 300,
           'temperature': 0.8,
+          'max_tokens': 200,
         }),
       );
 
@@ -60,8 +60,7 @@ class AIService {
         final data = jsonDecode(response.body);
         return data['choices'][0]['message']['content'];
       } else {
-        debugPrint('OpenAI API error: ${response.statusCode} - ${response.body}');
-        throw Exception('Failed to generate story: ${response.statusCode}');
+        throw Exception('Failed to generate story: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error generating story: $e');
@@ -69,15 +68,14 @@ class AIService {
     }
   }
 
-  // Генерация родительских советов
+  // Получение советов по воспитанию
   static Future<String> getParentingAdvice({
     required String topic,
     required String childAge,
     required String language,
   }) async {
     if (!hasApiKey) {
-      debugPrint('⚠️ OpenAI API key not configured');
-      return _getFallbackAdvice(topic, language);
+      return _getFallbackAdvice(topic, childAge, language);
     }
 
     try {
@@ -92,19 +90,19 @@ class AIService {
           'messages': [
             {
               'role': 'system',
-              'content': 'You are an experienced child development expert and parenting coach. '
-                  'Provide evidence-based, practical, and empathetic advice for parents. '
-                  'Keep responses concise (under 150 words) and actionable. '
-                  'Consider child age when giving advice. '
+              'content': 'You are a professional child development expert and parenting counselor. '
+                  'Provide practical, evidence-based advice that is supportive and non-judgmental. '
+                  'Keep responses concise (2-3 paragraphs) and actionable. '
+                  'Consider child\'s age when giving advice. '
                   'Respond in $language language.',
             },
             {
               'role': 'user',
-              'content': 'My child is $childAge old. I need advice about: $topic',
-            },
+              'content': 'I have a $childAge old child. I need advice about: $topic',
+            }
           ],
-          'max_tokens': 300,
           'temperature': 0.7,
+          'max_tokens': 250,
         }),
       );
 
@@ -112,22 +110,21 @@ class AIService {
         final data = jsonDecode(response.body);
         return data['choices'][0]['message']['content'];
       } else {
-        debugPrint('OpenAI API error: ${response.statusCode}');
-        throw Exception('Failed to get advice: ${response.statusCode}');
+        throw Exception('Failed to get advice');
       }
     } catch (e) {
-      debugPrint('Error getting advice: $e');
-      return _getFallbackAdvice(topic, language);
+      debugPrint('Error getting parenting advice: $e');
+      return _getFallbackAdvice(topic, childAge, language);
     }
   }
 
-  // Анализ развития ребенка
-  static Future<Map<String, dynamic>> analyzeDevelopment({
-    required Map<String, dynamic> childData,
+  // Получение развивающих советов
+  static Future<Map<String, dynamic>> getDevelopmentAnalysis({
+    required String childName,
+    required int ageInMonths,
     required String language,
   }) async {
     if (!hasApiKey) {
-      debugPrint('⚠️ OpenAI API key not configured');
       return _getFallbackAnalysis(language);
     }
 
@@ -143,103 +140,157 @@ class AIService {
           'messages': [
             {
               'role': 'system',
-              'content': 'You are a pediatric development specialist. '
-                  'Analyze child development data and provide insights. '
-                  'Focus on milestones, areas of strength, and gentle suggestions for improvement. '
-                  'Be encouraging and positive. '
-                  'Return response as JSON with keys: summary, strengths, suggestions. '
-                  'Respond in $language language.',
+              'content': 'You are a child development expert. '
+                  'Provide brief, practical analysis and suggestions for parents. '
+                  'Focus on age-appropriate activities and milestones. '
+                  'Be encouraging and supportive. '
+                  'Respond in $language language as JSON with structure: '
+                  '{"summary": "string", "strengths": ["string"], "suggestions": ["string"]}',
             },
             {
               'role': 'user',
-              'content': 'Analyze this child development data: ${jsonEncode(childData)}',
-            },
+              'content': 'Provide development analysis for $childName who is $ageInMonths months old.',
+            }
           ],
-          'max_tokens': 400,
-          'temperature': 0.6,
+          'temperature': 0.7,
+          'max_tokens': 300,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final content = data['choices'][0]['message']['content'];
-
-        // Пытаемся распарсить JSON из ответа
-        try {
-          return jsonDecode(content);
-        } catch (e) {
-          return {
-            'summary': content,
-            'strengths': ['Развивается согласно возрасту'],
-            'suggestions': ['Продолжайте в том же духе!'],
-          };
-        }
+        return jsonDecode(content);
       } else {
-        throw Exception('Failed to analyze development');
+        throw Exception('Failed to get analysis');
       }
     } catch (e) {
-      debugPrint('Error analyzing development: $e');
+      debugPrint('Error getting development analysis: $e');
       return _getFallbackAnalysis(language);
     }
   }
 
-  // Резервные ответы на случай отсутствия API ключа или ошибки
+  // Генерация активности для темы дня
+  static Future<String> generateTopicActivity({
+    required String topic,
+    required String ageGroup,
+    required String language,
+  }) async {
+    if (!hasApiKey) {
+      return _getFallbackTopicActivity(topic, ageGroup, language);
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(_apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_apiKey',
+        },
+        body: jsonEncode({
+          'model': 'gpt-3.5-turbo',
+          'messages': [
+            {
+              'role': 'system',
+              'content': 'You are a child development expert specializing in age-appropriate activities. '
+                  'Create practical, engaging, and safe activities for children. '
+                  'Activities should be easy to do at home with common materials. '
+                  'Keep suggestions concise (2-3 sentences) and action-oriented. '
+                  'Respond in $language language.',
+            },
+            {
+              'role': 'user',
+              'content': 'Create an activity for children aged $ageGroup related to "$topic". '
+                  'The activity should help develop this skill or explore this topic.',
+            }
+          ],
+          'temperature': 0.8,
+          'max_tokens': 150,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['choices'][0]['message']['content'].trim();
+      } else {
+        throw Exception('Failed to generate activity');
+      }
+    } catch (e) {
+      debugPrint('Error generating topic activity: $e');
+      return _getFallbackTopicActivity(topic, ageGroup, language);
+    }
+  }
+
+  // ===== ЗАПАСНЫЕ ВАРИАНТЫ (FALLBACK) =====
+
+  // Запасная сказка
   static String _getFallbackStory(String childName, String theme, String language) {
     final stories = {
-      'ru': 'Жил-был маленький $childName, который очень любил $theme. '
-          'Однажды $childName отправился в волшебное путешествие. '
-          'По дороге $childName встретил добрых друзей, которые помогли найти сокровище - '
-          'настоящую дружбу и радость. И все жили долго и счастливо!',
-      'en': 'Once upon a time, there was little $childName who loved $theme. '
-          'One day, $childName went on a magical adventure. '
-          'Along the way, $childName met kind friends who helped find the greatest treasure - '
-          'true friendship and joy. And they all lived happily ever after!',
-      'es': 'Había una vez un pequeño $childName que amaba $theme. '
-          'Un día, $childName emprendió una aventura mágica. '
-          'En el camino, $childName conoció amigos amables que ayudaron a encontrar el tesoro más grande: '
-          '¡la verdadera amistad y alegría! Y todos vivieron felices para siempre.',
-      'fr': 'Il était une fois un petit $childName qui aimait $theme. '
-          'Un jour, $childName est parti pour une aventure magique. '
-          'En chemin, $childName a rencontré des amis gentils qui ont aidé à trouver le plus grand trésor - '
-          'la vraie amitié et la joie. Et ils vécurent heureux pour toujours!',
-      'de': 'Es war einmal ein kleiner $childName, der $theme liebte. '
-          'Eines Tages ging $childName auf ein magisches Abenteuer. '
-          'Auf dem Weg traf $childName freundliche Freunde, die halfen, den größten Schatz zu finden - '
-          'wahre Freundschaft und Freude. Und sie lebten glücklich bis ans Ende ihrer Tage!',
+      'en': 'Once upon a time, $childName went on a magical adventure about $theme. '
+          'They discovered wonderful things and made new friends. '
+          'After a day full of joy and learning, $childName returned home '
+          'happy and ready for sweet dreams. The end.',
+      'ru': 'Жил-был малыш по имени $childName. Однажды $childName отправился '
+          'в волшебное путешествие, где узнал много интересного про $theme. '
+          'По пути встретил новых друзей и увидел удивительные вещи. '
+          'Вечером $childName вернулся домой счастливый и довольный. '
+          'И снились ему только хорошие сны.',
+      'es': 'Había una vez un niño llamado $childName que fue a una aventura mágica sobre $theme. '
+          'Descubrió cosas maravillosas e hizo nuevos amigos. '
+          'Después de un día lleno de alegría, $childName volvió a casa '
+          'feliz y listo para dulces sueños.',
+      'fr': 'Il était une fois $childName qui partit dans une aventure magique sur $theme. '
+          'Il découvrit des choses merveilleuses et se fit de nouveaux amis. '
+          'Après une journée pleine de joie, $childName rentra à la maison '
+          'heureux et prêt pour de doux rêves.',
+      'de': 'Es war einmal $childName, der auf ein magisches Abenteuer über $theme ging. '
+          'Er entdeckte wunderbare Dinge und fand neue Freunde. '
+          'Nach einem Tag voller Freude kehrte $childName glücklich nach Hause zurück '
+          'und war bereit für süße Träume.',
     };
 
     return stories[language] ?? stories['en']!;
   }
 
-  static String _getFallbackAdvice(String topic, String language) {
+  // Запасные советы
+  static String _getFallbackAdvice(String topic, String childAge, String language) {
     final advice = {
-      'ru': 'Каждый ребенок развивается в своем темпе. '
-          'Важно создать безопасную и любящую среду, где ребенок может исследовать мир. '
-          'Будьте терпеливы, последовательны и помните - ваша любовь и поддержка самое важное!',
-      'en': 'Every child develops at their own pace. '
-          'It\'s important to create a safe and loving environment where your child can explore. '
-          'Be patient, consistent, and remember - your love and support matter most!',
-      'es': 'Cada niño se desarrolla a su propio ritmo. '
-          'Es importante crear un ambiente seguro y amoroso donde su hijo pueda explorar. '
-          '¡Sea paciente, consistente y recuerde - su amor y apoyo son lo más importante!',
-      'fr': 'Chaque enfant se développe à son propre rythme. '
-          'Il est important de créer un environnement sûr et aimant où votre enfant peut explorer. '
-          'Soyez patient, cohérent et rappelez-vous - votre amour et votre soutien comptent le plus!',
-      'de': 'Jedes Kind entwickelt sich in seinem eigenen Tempo. '
-          'Es ist wichtig, eine sichere und liebevolle Umgebung zu schaffen, in der Ihr Kind erkunden kann. '
-          'Seien Sie geduldig, konsequent und denken Sie daran - Ihre Liebe und Unterstützung sind am wichtigsten!',
+      'en': 'Every child develops at their own pace. For a $childAge old child, '
+          'it\'s important to be patient and supportive. Regarding "$topic", '
+          'try to create a positive environment, establish routines, '
+          'and celebrate small achievements. If you have concerns, '
+          'consult with your pediatrician.',
+      'ru': 'Каждый ребенок развивается в своем темпе. Для ребенка возраста $childAge '
+          'важно проявлять терпение и поддержку. Касательно темы "$topic", '
+          'старайтесь создавать позитивную атмосферу, устанавливать режим дня '
+          'и отмечать даже маленькие достижения. При беспокойстве '
+          'обратитесь к педиатру.',
     };
 
     return advice[language] ?? advice['en']!;
   }
 
+  // Запасные варианты анализа
   static Map<String, dynamic> _getFallbackAnalysis(String language) {
     final analysis = {
+      'en': {
+        'summary': 'Your child is developing well and reaching age-appropriate milestones.',
+        'strengths': [
+          'Good physical development',
+          'Active exploration of the world',
+          'Language skills developing'
+        ],
+        'suggestions': [
+          'Continue reading books together',
+          'Encourage independence',
+          'Play educational games'
+        ],
+      },
       'ru': {
-        'summary': 'Ваш ребенок развивается хорошо и соответствует возрастным нормам.',
+        'summary': 'Ваш ребенок хорошо развивается и достигает соответствующих возрасту вех.',
         'strengths': [
           'Хорошее физическое развитие',
-          'Активное познание мира',
+          'Активное исследование мира',
           'Развитие речевых навыков'
         ],
         'suggestions': [
@@ -248,21 +299,8 @@ class AIService {
           'Играйте в развивающие игры'
         ],
       },
-      'en': {
-        'summary': 'Your child is developing well and meeting age-appropriate milestones.',
-        'strengths': [
-          'Good physical development',
-          'Active world exploration',
-          'Language skill development'
-        ],
-        'suggestions': [
-          'Continue reading books together',
-          'Encourage independence',
-          'Play educational games'
-        ],
-      },
       'es': {
-        'summary': 'Su hijo se está desarrollando bien y cumple con los hitos apropiados para su edad.',
+        'summary': 'Su hijo se está desarrollando bien y alcanzando hitos apropiados para su edad.',
         'strengths': [
           'Buen desarrollo físico',
           'Exploración activa del mundo',
@@ -303,5 +341,46 @@ class AIService {
     };
 
     return analysis[language] ?? analysis['en']!;
+  }
+
+  // Запасные варианты активностей для темы дня
+  static String _getFallbackTopicActivity(String topic, String ageGroup, String language) {
+    final activities = {
+      'ru': {
+        'default': 'Организуйте игру, связанную с темой "$topic". Используйте игрушки, книги или простые материалы, чтобы исследовать эту тему вместе с ребенком. Адаптируйте сложность под возраст $ageGroup.',
+        'emotional': 'Поговорите с ребенком о чувствах, используя примеры из повседневной жизни. Покажите, как выражать эмоции словами и помогите ребенку понять свои чувства.',
+        'social': 'Организуйте ролевую игру, где ребенок может практиковать социальные навыки. Используйте куклы или мягкие игрушки для разыгрывания различных ситуаций.',
+        'cognitive': 'Создайте простую игру-головоломку или задание на сортировку. Используйте предметы разных цветов, форм или размеров для развития логического мышления.',
+        'physical': 'Организуйте активную игру с движениями - прыжки, танцы или полосу препятствий из подушек. Это поможет развить координацию и моторику.',
+        'creative': 'Предложите ребенку творческое занятие - рисование пальчиками, лепку из пластилина или создание поделки из природных материалов.',
+      },
+      'en': {
+        'default': 'Organize a play activity related to "$topic". Use toys, books, or simple materials to explore this theme together. Adapt the complexity for age $ageGroup.',
+        'emotional': 'Talk with your child about feelings using everyday examples. Show how to express emotions with words and help them understand their feelings.',
+        'social': 'Set up role-play games where your child can practice social skills. Use dolls or stuffed animals to act out different situations.',
+        'cognitive': 'Create a simple puzzle game or sorting activity. Use objects of different colors, shapes, or sizes to develop logical thinking.',
+        'physical': 'Organize active play with movements - jumping, dancing, or an obstacle course with pillows. This helps develop coordination and motor skills.',
+        'creative': 'Offer creative activities - finger painting, clay modeling, or making crafts from natural materials.',
+      },
+    };
+
+    // Определяем категорию по ключевым словам в теме
+    String category = 'default';
+    final topicLower = topic.toLowerCase();
+
+    if (topicLower.contains('эмоц') || topicLower.contains('чувств') || topicLower.contains('emotion') || topicLower.contains('feeling')) {
+      category = 'emotional';
+    } else if (topicLower.contains('друз') || topicLower.contains('общен') || topicLower.contains('social') || topicLower.contains('friend')) {
+      category = 'social';
+    } else if (topicLower.contains('логик') || topicLower.contains('мышлен') || topicLower.contains('logic') || topicLower.contains('think')) {
+      category = 'cognitive';
+    } else if (topicLower.contains('движен') || topicLower.contains('физич') || topicLower.contains('physical') || topicLower.contains('move')) {
+      category = 'physical';
+    } else if (topicLower.contains('творч') || topicLower.contains('рисов') || topicLower.contains('creative') || topicLower.contains('art')) {
+      category = 'creative';
+    }
+
+    final langActivities = activities[language] ?? activities['en']!;
+    return langActivities[category] ?? langActivities['default']!;
   }
 }
