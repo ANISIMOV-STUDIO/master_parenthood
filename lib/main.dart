@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 
 // Провайдеры
 import 'providers/locale_provider.dart';
@@ -395,7 +394,7 @@ class AchievementsScreen extends StatelessWidget {
               ),
               Column(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.stars,
                     color: Colors.amber,
                     size: 20,

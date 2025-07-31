@@ -60,16 +60,24 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
         childId: _activeChild!.id,
       );
 
-      if (photoUrl != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Фото обновлено')),
-        );
+      // !!! Здесь вы используете context после await.
+      // !!! Добавьте проверку mounted перед использованием context.
+      if (mounted) {
+        if (photoUrl != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Фото обновлено')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка загрузки фото: $e')),
-      );
+      // !!! И здесь вы используете context. Добавьте проверку mounted.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка загрузки фото: $e')),
+        );
+      }
     } finally {
+      // В блоке finally вы уже правильно проверяете mounted, это хорошо.
       if (mounted) {
         setState(() => _isUploadingPhoto = false);
       }
@@ -866,8 +874,8 @@ class _AddChildDialogState extends State<AddChildDialog> {
         name: _nameController.text,
         birthDate: _birthDate,
         gender: _gender,
-        height: double.tryParse(_heightController.text),
-        weight: double.tryParse(_weightController.text),
+        height: double.tryParse(_heightController.text) ?? 0.0,
+        weight: double.tryParse(_weightController.text) ?? 0.0,
       );
 
       if (mounted) {
@@ -877,9 +885,11 @@ class _AddChildDialogState extends State<AddChildDialog> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1057,9 +1067,11 @@ class _EditChildDialogState extends State<EditChildDialog> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1234,9 +1246,11 @@ class _EditPetDialogState extends State<EditPetDialog> {
         Navigator.pop(context);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

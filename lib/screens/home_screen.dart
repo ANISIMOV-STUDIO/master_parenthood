@@ -821,12 +821,16 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
         language: locale.languageCode,
       );
 
+      if (!mounted) return;
+
       // Сохраняем сказку и получаем ID
       final storyId = await FirebaseService.saveStory(
         childId: _selectedChild.id,
         story: story,
         theme: _themeController.text,
       );
+
+      if (!mounted) return;
 
       setState(() {
         _generatedStory = story;
@@ -837,13 +841,17 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
 
       await FirebaseService.addXP(50);
 
+      if (!mounted) return;
+
     } catch (e) {
       setState(() {
         _isGenerating = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -851,6 +859,11 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
     if (_storyId == null) return;
 
     await FirebaseService.toggleStoryFavorite(_storyId!);
+
+    if (!mounted) {
+      return; // Если виджет был удалён, выходим из функции.
+    }
+
     setState(() {
       _isFavorite = !_isFavorite;
     });
@@ -1276,8 +1289,8 @@ class _AddChildDialogState extends State<AddChildDialog> {
         name: _nameController.text,
         birthDate: _birthDate,
         gender: _gender,
-        height: double.tryParse(_heightController.text),
-        weight: double.tryParse(_weightController.text),
+        height: double.tryParse(_heightController.text) ?? 0.0,
+        weight: double.tryParse(_weightController.text) ?? 0.0,
       );
 
       if (mounted) {
@@ -1287,9 +1300,11 @@ class _AddChildDialogState extends State<AddChildDialog> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

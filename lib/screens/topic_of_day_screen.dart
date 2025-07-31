@@ -1,11 +1,8 @@
 // lib/screens/topic_of_day_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import '../l10n/app_localizations.dart';
 import '../services/firebase_service.dart';
-import '../services/topic_service.dart';
 import '../services/ai_service.dart';
 
 class TopicOfDayScreen extends StatefulWidget {
@@ -16,86 +13,99 @@ class TopicOfDayScreen extends StatefulWidget {
 }
 
 class _TopicOfDayScreenState extends State<TopicOfDayScreen> {
-  DailyTopic? _todayTopic;
+  String? _selectedChildId;
   bool _isLoading = true;
-  bool _isGeneratingActivity = false;
-  List<String> _generatedActivities = [];
-  final _commentController = TextEditingController();
+  String? _currentTopic;
+  String? _topicAdvice;
+  final List<Map<String, String>> _generatedActivities = [];
 
   @override
   void initState() {
     super.initState();
-    _loadTodayTopic();
+    _loadData();
   }
 
-  @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadTodayTopic() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final topic = await TopicService.getTodayTopic();
+  Future<void> _loadData() async {
+    final activeChild = await FirebaseService.getActiveChild();
+    if (activeChild != null) {
       setState(() {
-        _todayTopic = topic;
-        _isLoading = false;
+        _selectedChildId = activeChild.id;
       });
+      await _loadTopicOfDay();
+    }
+    setState(() => _isLoading = false);
+  }
 
-      // Генерируем тему если её нет
-      if (topic == null) {
-        await TopicService.generateTodayTopic();
-        final newTopic = await TopicService.getTodayTopic();
-        setState(() {
-          _todayTopic = newTopic;
-        });
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки: $e')),
+  Future<void> _loadTopicOfDay() async {
+    // Темы дня по дням недели
+    final topics = [
+      'Изучаем цвета и формы',
+      'Развиваем мелкую моторику',
+      'Учимся считать',
+      'Знакомимся с животными',
+      'Музыка и ритм',
+      'Природа вокруг нас',
+      'Эмоции и чувства',
+    ];
+
+    final dayOfWeek = DateTime.now().weekday - 1;
+    setState(() {
+      _currentTopic = topics[dayOfWeek];
+    });
+
+    // Получаем совет от AI
+    if (_selectedChildId != null) {
+      final child = await FirebaseService.getChild(_selectedChildId!);
+      if (child != null) {
+        final advice = await AIService.getParentingAdvice(
+          topic: _currentTopic!,
+          childAge: '${child.ageInYears} лет',
+          language: 'ru',
         );
+        setState(() {
+          _topicAdvice = advice;
+        });
       }
     }
   }
 
   Future<void> _generateActivity() async {
-    if (_todayTopic == null) return;
+    if (_currentTopic == null || _selectedChildId == null) return;
 
-    setState(() => _isGeneratingActivity = true);
+    setState(() => _isLoading = true);
 
     try {
-      final activeChild = await FirebaseService.getActiveChild();
-      final childAge = activeChild?.ageFormattedShort ?? '2-3 года';
+      final child = await FirebaseService.getChild(_selectedChildId!);
+      if (child != null) {
+        // Генерируем активность через AI
+        final activity = await AIService.getParentingAdvice(
+          topic: '$_currentTopic - придумай одну конкретную игру или активность',
+          childAge: '${child.ageInYears} лет',
+          language: 'ru',
+        );
 
-      // Генерируем активность через AI
-      final activity = await AIService.generateTopicActivity(
-        topic: _todayTopic!.title,
-        ageGroup: childAge,
-        language: Localizations.localeOf(context).languageCode,
-      );
+        setState(() {
+          _generatedActivities.add({
+            'title': 'Активность ${_generatedActivities.length + 1}',
+            'description': activity,
+            'time': DateTime.now().toString(),
+          });
+        });
 
-      setState(() {
-        _generatedActivities.add(activity);
-        _isGeneratingActivity = false;
-      });
-
-      // Сохраняем активность
-      await TopicService.saveGeneratedActivity(
-        topicId: _todayTopic!.id,
-        activity: activity,
-      );
-
-      // Добавляем XP
-      await FirebaseService.addXP(30);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Новая активность добавлена!')),
+          );
+        }
+      }
     } catch (e) {
-      setState(() => _isGeneratingActivity = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка генерации: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -104,917 +114,367 @@ class _TopicOfDayScreenState extends State<TopicOfDayScreen> {
     final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.pink.shade50,
-              Colors.purple.shade50,
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _todayTopic == null
-              ? _buildEmptyState(context, loc)
-              : _buildContent(context, loc),
-        ),
+      appBar: AppBar(
+        title: Text(loc.topicOfDay),
+        centerTitle: true,
       ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context, AppLocalizations loc) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.lightbulb_outline,
-            size: 64,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Тема дня еще не готова',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadTodayTopic,
-            child: const Text('Обновить'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContent(BuildContext context, AppLocalizations loc) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Заголовок
-          _buildHeader(context, loc),
-
-          // Карточка темы дня
-          _buildTopicCard(context),
-
-          // Секции
-          _buildWhyImportantSection(context),
-          _buildHowToDiscussSection(context),
-          _buildActivitiesSection(context),
-          _buildGeneratedActivitiesSection(context),
-          _buildCommunitySection(context),
-
-          const SizedBox(height: 100),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, AppLocalizations loc) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc.topicOfDay,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Карточка темы дня
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.purple.shade400,
+                    Colors.pink.shade400,
+                  ],
                 ),
-                Text(
-                  _formatDate(DateTime.now()),
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () => _shareTopic(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopicCard(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _getTopicColor(_todayTopic!.category),
-            _getTopicColor(_todayTopic!.category).withValues(alpha: 0.7),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: _getTopicColor(_todayTopic!.category).withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(
-            _getTopicIcon(_todayTopic!.category),
-            size: 60,
-            color: Colors.white,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _todayTopic!.title,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              height: 1.2,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _getCategoryName(_todayTopic!.category),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.9, 0.9));
-  }
-
-  Widget _buildWhyImportantSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.star,
-                  color: Colors.amber,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Почему это важно?',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _todayTopic!.whyImportant,
-            style: TextStyle(
-              fontSize: 16,
-              height: 1.5,
-              color: Colors.grey.shade700,
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.1);
-  }
-
-  Widget _buildHowToDiscussSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.chat_bubble_outline,
-                  color: Colors.blue,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Как обсудить с ребенком?',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ..._todayTopic!.discussionPoints.asMap().entries.map((entry) {
-            final index = entry.key;
-            final point = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${index + 1}',
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      point,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.4,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.purple.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
                 ],
               ),
-            ).animate().fadeIn(delay: (300 + index * 100).ms).slideX(begin: -0.1);
-          }),
-        ],
-      ),
-    ).animate().fadeIn(delay: 300.ms).slideX(begin: 0.1);
-  }
-
-  Widget _buildActivitiesSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.green.shade50,
-            Colors.teal.shade50,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.green.shade200,
-          width: 2,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.extension,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Активности по возрастам',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          ..._todayTopic!.activities.entries.map((entry) {
-            final ageGroup = entry.key;
-            final activities = entry.value;
-            return _buildAgeGroupActivities(context, ageGroup, activities);
-          }),
-        ],
-      ),
-    ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.1);
-  }
-
-  Widget _buildAgeGroupActivities(
-      BuildContext context,
-      String ageGroup,
-      List<String> activities,
-      ) {
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.green.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            _getAgeGroupName(ageGroup),
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
-            ),
-          ),
-        ),
-        children: activities.map((activity) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.play_circle_outline,
-                  color: Colors.green,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    activity,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildGeneratedActivitiesSection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          // Кнопка генерации
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Colors.purple, Colors.pink],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.purple.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: _isGeneratingActivity ? null : _generateActivity,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      if (_isGeneratingActivity)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.auto_awesome,
-                          color: Colors.white,
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      const SizedBox(width: 12),
-                      Text(
-                        _isGeneratingActivity
-                            ? 'Генерирую идею...'
-                            : 'Сгенерировать идею с AI',
-                        style: const TextStyle(
+                        child: const Icon(
+                          Icons.today,
                           color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Тема дня',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _currentTopic ?? 'Загрузка...',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            ),
-          ),
-
-          // Сгенерированные активности
-          if (_generatedActivities.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            ..._generatedActivities.asMap().entries.map((entry) {
-              final index = entry.key;
-              final activity = entry.value;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.purple.withValues(alpha: 0.3),
-                    width: 2,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.auto_awesome,
-                            color: Colors.purple,
-                            size: 16,
-                          ),
+                  if (_topicAdvice != null) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _topicAdvice!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.5,
                         ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'AI идея',
-                          style: TextStyle(
-                            color: Colors.purple,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.share, size: 20),
-                          onPressed: () => Share.share(activity),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      activity,
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.4,
-                        color: Colors.grey.shade700,
                       ),
                     ),
                   ],
-                ),
-              ).animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.1);
-            }),
-          ],
-        ],
-      ),
-    );
-  }
+                ],
+              ),
+            ).animate()
+                .fadeIn()
+                .slideY(begin: -0.1, end: 0),
 
-  Widget _buildCommunitySection(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.forum,
-                  color: Colors.orange,
+            const SizedBox(height: 24),
+
+            // Кнопка генерации активности
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _generateActivity,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Сгенерировать активность'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+            ),
+
+            if (_generatedActivities.isNotEmpty) ...[
+              const SizedBox(height: 24),
               Text(
-                'Обсуждение сообщества',
+                'Сгенерированные активности',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
+              const SizedBox(height: 16),
+              ..._generatedActivities.asMap().entries.map((entry) {
+                final index = entry.key;
+                final activity = entry.value;
 
-          // Статистика
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                icon: Icons.people,
-                value: _todayTopic!.participantsCount.toString(),
-                label: 'Участников',
-                color: Colors.blue,
-              ),
-              _buildStatItem(
-                icon: Icons.comment,
-                value: _todayTopic!.commentsCount.toString(),
-                label: 'Комментариев',
-                color: Colors.green,
-              ),
-              _buildStatItem(
-                icon: Icons.favorite,
-                value: _todayTopic!.likesCount.toString(),
-                label: 'Лайков',
-                color: Colors.red,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Форма комментария
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _commentController,
-                  decoration: InputDecoration(
-                    hintText: 'Поделитесь вашим опытом...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(25),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              CircleAvatar(
-                backgroundColor: Colors.orange,
-                child: IconButton(
-                  icon: const Icon(Icons.send, color: Colors.white),
-                  onPressed: () => _addComment(),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Последние комментарии
-          StreamBuilder<List<TopicComment>>(
-            stream: TopicService.getCommentsStream(_todayTopic!.id),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      'Будьте первым, кто поделится опытом!',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                      ),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: Colors.purple.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${index + 1}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.purple,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                activity['title']!,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          activity['description']!,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }
+                ).animate()
+                    .fadeIn(delay: Duration(milliseconds: index * 100))
+                    .slideX(begin: 0.1, end: 0);
+              }),
+            ],
 
-              final comments = snapshot.data!;
-              return Column(
-                children: comments.take(3).map((comment) {
-                  return _buildCommentItem(context, comment);
-                }).toList(),
-              );
-            },
-          ),
-        ],
+            // Предложенные активности
+            const SizedBox(height: 32),
+            Text(
+              'Идеи для сегодня',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ..._getDefaultActivities().map((activity) {
+              return _ActivityCard(activity: activity);
+            }),
+          ],
+        ),
       ),
-    ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.1);
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-      ],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Поделиться темой'),
+              content: Text(
+                'Тема дня: $_currentTopic\n\n'
+                    'Поделитесь этой темой с другими родителями!',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Закрыть'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    // TODO: Implement sharing
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Скоро будет доступно!')),
+                    );
+                  },
+                  child: const Text('Поделиться'),
+                ),
+              ],
+            ),
+          );
+        },
+        child: const Icon(Icons.share),
+      ),
     );
   }
 
-  Widget _buildCommentItem(BuildContext context, TopicComment comment) {
-    return Container(
+  List<Map<String, dynamic>> _getDefaultActivities() {
+    switch (_currentTopic) {
+      case 'Изучаем цвета и формы':
+        return [
+          {
+            'icon': Icons.palette,
+            'title': 'Цветная охота',
+            'description': 'Найдите в доме предметы разных цветов',
+            'duration': '15 мин',
+          },
+          {
+            'icon': Icons.category,
+            'title': 'Сортировка форм',
+            'description': 'Разложите игрушки по формам',
+            'duration': '20 мин',
+          },
+        ];
+      case 'Развиваем мелкую моторику':
+        return [
+          {
+            'icon': Icons.pan_tool,
+            'title': 'Пальчиковые игры',
+            'description': 'Играем в "Сороку-белобоку"',
+            'duration': '10 мин',
+          },
+          {
+            'icon': Icons.draw,
+            'title': 'Рисование пальчиками',
+            'description': 'Создаем картину пальчиковыми красками',
+            'duration': '30 мин',
+          },
+        ];
+      default:
+        return [
+          {
+            'icon': Icons.play_circle,
+            'title': 'Свободная игра',
+            'description': 'Время для творческой игры',
+            'duration': '30 мин',
+          },
+        ];
+    }
+  }
+}
+
+// Карточка активности
+class _ActivityCard extends StatelessWidget {
+  final Map<String, dynamic> activity;
+
+  const _ActivityCard({required this.activity});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: InkWell(
+        onTap: () {
+          // TODO: Open activity details
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundImage: comment.userPhotoUrl != null
-                    ? NetworkImage(comment.userPhotoUrl!)
-                    : null,
-                child: comment.userPhotoUrl == null
-                    ? Text(comment.userName[0].toUpperCase())
-                    : null,
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  activity['icon'],
+                  color: Colors.purple,
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      comment.userName,
+                      activity['title'],
                       style: const TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 4),
                     Text(
-                      _formatCommentTime(comment.createdAt),
+                      activity['description'],
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         color: Colors.grey.shade600,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (comment.userId == FirebaseService.currentUserId)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  onPressed: () => _deleteComment(comment.id),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
                 ),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  activity['duration'],
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            comment.text,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade700,
-            ),
-          ),
-        ],
+        ),
       ),
     );
-  }
-
-  void _shareTopic() {
-    if (_todayTopic == null) return;
-
-    final text = '''
-🌟 Тема дня: ${_todayTopic!.title}
-
-${_todayTopic!.whyImportant}
-
-Обсудите эту тему с вашим ребенком!
-
-#MasterParenthood #РазвитиеДетей
-''';
-
-    Share.share(text);
-  }
-
-  void _addComment() async {
-    if (_commentController.text.trim().isEmpty || _todayTopic == null) return;
-
-    try {
-      await TopicService.addComment(
-        topicId: _todayTopic!.id,
-        text: _commentController.text.trim(),
-      );
-
-      _commentController.clear();
-
-      // Скрываем клавиатуру
-      FocusScope.of(context).unfocus();
-
-      // Добавляем XP
-      await FirebaseService.addXP(10);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка отправки: $e')),
-      );
-    }
-  }
-
-  void _deleteComment(String commentId) async {
-    try {
-      await TopicService.deleteComment(commentId);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка удаления: $e')),
-      );
-    }
-  }
-
-  Color _getTopicColor(String category) {
-    switch (category) {
-      case 'emotional':
-        return Colors.pink;
-      case 'social':
-        return Colors.blue;
-      case 'cognitive':
-        return Colors.orange;
-      case 'physical':
-        return Colors.green;
-      case 'creative':
-        return Colors.purple;
-      default:
-        return Colors.teal;
-    }
-  }
-
-  IconData _getTopicIcon(String category) {
-    switch (category) {
-      case 'emotional':
-        return Icons.favorite;
-      case 'social':
-        return Icons.people;
-      case 'cognitive':
-        return Icons.psychology;
-      case 'physical':
-        return Icons.directions_run;
-      case 'creative':
-        return Icons.palette;
-      default:
-        return Icons.lightbulb;
-    }
-  }
-
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'emotional':
-        return 'Эмоциональное развитие';
-      case 'social':
-        return 'Социальные навыки';
-      case 'cognitive':
-        return 'Познавательное развитие';
-      case 'physical':
-        return 'Физическое развитие';
-      case 'creative':
-        return 'Творчество';
-      default:
-        return 'Общее развитие';
-    }
-  }
-
-  String _getAgeGroupName(String ageGroup) {
-    switch (ageGroup) {
-      case '0-1':
-        return '0-1 год';
-      case '1-2':
-        return '1-2 года';
-      case '2-3':
-        return '2-3 года';
-      case '3-5':
-        return '3-5 лет';
-      case '5-7':
-        return '5-7 лет';
-      default:
-        return ageGroup;
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    const months = [
-      'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
-      'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
-
-  String _formatCommentTime(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
-
-    if (difference.inMinutes < 1) {
-      return 'только что';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes} мин назад';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours} ч назад';
-    } else {
-      return '${difference.inDays} дн назад';
-    }
   }
 }

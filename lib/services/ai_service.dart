@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 class AIService {
   // Для продакшена используйте Firebase Remote Config или переменные окружения
   // Временно можно установить ключ здесь для тестирования
-  static const String _apiKey = const String.fromEnvironment(
+  static const String _apiKey = String.fromEnvironment(
     'OPENAI_API_KEY',
     defaultValue: '', // Установите ваш ключ здесь или через --dart-define
   );

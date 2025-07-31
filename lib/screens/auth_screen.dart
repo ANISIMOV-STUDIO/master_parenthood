@@ -12,14 +12,14 @@ import '../providers/auth_provider.dart';
 // OAuth конфигурация - замените на ваши реальные значения
 class OAuthConfig {
   // VK OAuth
-  static const String vkAppId = const String.fromEnvironment(
+  static const String vkAppId = String.fromEnvironment(
     'VK_APP_ID',
     defaultValue: '', // Установите ваш VK App ID
   );
   static const String vkRedirectUri = 'https://oauth.vk.com/blank.html';
 
   // Яндекс OAuth
-  static const String yandexClientId = const String.fromEnvironment(
+  static const String yandexClientId = String.fromEnvironment(
     'YANDEX_CLIENT_ID',
     defaultValue: '', // Установите ваш Yandex Client ID
   );
@@ -618,7 +618,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
               ),
               if (!isAvailable && kDebugMode) ...[
                 const SizedBox(width: 8),
-                Icon(
+                const Icon(
                   Icons.warning,
                   color: Colors.orange,
                   size: 16,

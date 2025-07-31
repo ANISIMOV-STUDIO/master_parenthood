@@ -6,139 +6,85 @@ import 'firebase_service.dart';
 class ChallengesService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Предустановленные челленджи по категориям
-  static final Map<String, List<Map<String, dynamic>>> _challengeTemplates = {
-    'physical': [
-      {
-        'title': 'Утренняя зарядка',
-        'description': 'Сделайте вместе с ребенком 5-минутную утреннюю зарядку',
-        'tips': 'Включите веселую музыку и превратите упражнения в игру',
-        'xpReward': 50,
-      },
-      {
-        'title': 'Прогулка на свежем воздухе',
-        'description': 'Погуляйте с ребенком не менее 30 минут',
-        'tips': 'Можно покормить птиц или поиграть в подвижные игры',
-        'xpReward': 60,
-      },
-      {
-        'title': 'Танцевальная вечеринка',
-        'description': 'Устройте домашнюю дискотеку и потанцуйте вместе',
-        'tips': 'Пусть ребенок выберет любимые песни',
-        'xpReward': 40,
-      },
-    ],
-    'cognitive': [
-      {
-        'title': 'Загадки и головоломки',
-        'description': 'Решите вместе 3-5 загадок или простых головоломок',
-        'tips': 'Подберите загадки по возрасту ребенка',
-        'xpReward': 50,
-      },
-      {
-        'title': 'Счет предметов',
-        'description': 'Посчитайте вместе игрушки, книги или другие предметы',
-        'tips': 'Сделайте счет частью игры или уборки',
-        'xpReward': 40,
-      },
-      {
-        'title': 'Изучаем формы',
-        'description': 'Найдите вокруг предметы разных геометрических форм',
-        'tips': 'Превратите поиск в увлекательную игру',
-        'xpReward': 45,
-      },
-    ],
-    'social': [
-      {
-        'title': 'Вежливые слова',
-        'description': 'Практикуйте использование вежливых слов весь день',
-        'tips': 'Хвалите ребенка за каждое "спасибо" и "пожалуйста"',
-        'xpReward': 40,
-      },
-      {
-        'title': 'Помощь по дому',
-        'description': 'Попросите ребенка помочь с простым домашним делом',
-        'tips': 'Выберите задание по возрасту и обязательно похвалите',
-        'xpReward': 50,
-      },
-      {
-        'title': 'Звонок бабушке',
-        'description': 'Позвоните родственникам и поговорите с ними',
-        'tips': 'Помогите ребенку рассказать о своем дне',
-        'xpReward': 45,
-      },
-    ],
-    'creative': [
-      {
-        'title': 'Рисование',
-        'description': 'Нарисуйте вместе картину на свободную тему',
-        'tips': 'Не критикуйте, хвалите за старание и креативность',
-        'xpReward': 50,
-      },
-      {
-        'title': 'Лепка из пластилина',
-        'description': 'Слепите вместе фигурку животного или человека',
-        'tips': 'Можно использовать тесто для лепки или соленое тесто',
-        'xpReward': 55,
-      },
-      {
-        'title': 'Придумываем историю',
-        'description': 'Сочините вместе короткую сказку или историю',
-        'tips': 'Пусть ребенок выберет главного героя',
-        'xpReward': 60,
-      },
-    ],
-    'emotional': [
-      {
-        'title': 'Дневник эмоций',
-        'description': 'Поговорите о чувствах и эмоциях дня',
-        'tips': 'Используйте картинки эмоций для помощи',
-        'xpReward': 45,
-      },
-      {
-        'title': 'Обнимашки',
-        'description': 'Обнимите ребенка не менее 5 раз за день',
-        'tips': 'Объятия помогают чувствовать себя любимым и защищенным',
-        'xpReward': 40,
-      },
-      {
-        'title': 'Комплименты',
-        'description': 'Скажите ребенку 3 искренних комплимента',
-        'tips': 'Хвалите за старание, а не только за результат',
-        'xpReward': 40,
-      },
-    ],
+  // Предопределенные челленджи по категориям и возрастам
+  static final Map<String, Map<String, List<Map<String, dynamic>>>> _challengeTemplates = {
+    '0-1': {
+      'physical': [
+        {
+          'title': 'Время на животике',
+          'description': 'Проведите 15 минут игр на животике с малышом',
+          'tips': [
+            'Используйте яркие игрушки для привлечения внимания',
+            'Начните с коротких сессий по 3-5 минут',
+            'Лучшее время - через час после кормления'
+          ],
+          'xpReward': 50,
+        },
+        {
+          'title': 'Массаж для малыша',
+          'description': 'Сделайте легкий массаж ручек и ножек перед сном',
+          'tips': [
+            'Используйте детское масло',
+            'Делайте мягкие круговые движения',
+            'Следите за реакцией малыша'
+          ],
+          'xpReward': 40,
+        },
+      ],
+      'cognitive': [
+        {
+          'title': 'Контрастные картинки',
+          'description': 'Покажите малышу черно-белые контрастные изображения',
+          'tips': [
+            'Держите картинки на расстоянии 20-30 см',
+            'Меняйте картинки каждые 20-30 секунд',
+            'Наблюдайте за реакцией глаз малыша'
+          ],
+          'xpReward': 30,
+        },
+      ],
+    },
+    '1-2': {
+      'physical': [
+        {
+          'title': 'Танцевальная вечеринка',
+          'description': 'Устройте 10-минутную танцевальную вечеринку с малышом',
+          'tips': [
+            'Выберите веселую детскую музыку',
+            'Покажите простые движения',
+            'Хвалите за попытки повторить'
+          ],
+          'xpReward': 60,
+        },
+        {
+          'title': 'Полоса препятствий',
+          'description': 'Создайте простую полосу препятствий из подушек',
+          'tips': [
+            'Используйте мягкие подушки и одеяла',
+            'Покажите как преодолевать препятствия',
+            'Страхуйте малыша'
+          ],
+          'xpReward': 70,
+        },
+      ],
+    },
   };
 
   // Недельные челленджи
-  static final List<Map<String, dynamic>> _weeklyTemplates = [
+  static final List<Map<String, dynamic>> _weeklyChallengeTemplates = [
     {
-      'title': 'Неделя без гаджетов',
-      'description': 'Проводите вечера без телевизора и планшета',
-      'category': 'social',
-      'targetCount': 7,
-      'xpReward': 200,
-    },
-    {
-      'title': 'Книжный марафон',
-      'description': 'Читайте вместе книги каждый день перед сном',
-      'category': 'cognitive',
-      'targetCount': 7,
-      'xpReward': 250,
-    },
-    {
-      'title': 'Здоровое питание',
-      'description': 'Каждый день ешьте фрукты и овощи',
+      'title': 'Неделя активности',
+      'description': 'Проводите активные игры каждый день',
       'category': 'physical',
       'targetCount': 7,
-      'xpReward': 180,
+      'xpReward': 500,
     },
     {
-      'title': 'Творческая неделя',
+      'title': 'Неделя творчества',
       'description': 'Каждый день создавайте что-то новое',
       'category': 'creative',
       'targetCount': 7,
-      'xpReward': 220,
+      'xpReward': 500,
     },
   ];
 
@@ -146,82 +92,112 @@ class ChallengesService {
   static Future<void> generateDailyChallenges(String? childId) async {
     if (!FirebaseService.isAuthenticated) return;
 
-    final activeChildId = childId ?? (await FirebaseService.getActiveChild())?.id;
-    if (activeChildId == null) return;
+    try {
+      final child = childId != null
+          ? await FirebaseService.getChild(childId)
+          : await FirebaseService.getActiveChild();
 
-    final today = DateTime.now();
-    final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      if (child == null) return;
 
-    // Проверяем, есть ли уже челленджи на сегодня
-    final existingChallenges = await _firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId!)
-        .collection('challenges')
-        .where('childId', isEqualTo: activeChildId)
-        .where('type', isEqualTo: 'daily')
-        .where('dateStr', isEqualTo: todayStr)
-        .get();
+      // Определяем возрастную группу
+      String ageGroup;
+      if (child.ageInMonths < 12) {
+        ageGroup = '0-1';
+      } else if (child.ageInMonths < 24) {
+        ageGroup = '1-2';
+      } else if (child.ageInMonths < 36) {
+        ageGroup = '2-3';
+      } else {
+        ageGroup = '3+';
+      }
 
-    if (existingChallenges.docs.isNotEmpty) {
-      debugPrint('Челленджи на сегодня уже созданы');
-      return;
+      final templates = _challengeTemplates[ageGroup] ?? {};
+
+      // Создаем коллекцию челленджей на сегодня
+      final today = DateTime.now();
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      final batch = _firestore.batch();
+
+      // Выбираем по одному челленджу из каждой категории
+      for (final category in templates.keys) {
+        final categoryTemplates = templates[category]!;
+        if (categoryTemplates.isNotEmpty) {
+          // Случайный выбор челленджа из категории
+          final randomIndex = DateTime.now().millisecondsSinceEpoch % categoryTemplates.length;
+          final template = categoryTemplates[randomIndex];
+
+          final challengeRef = _firestore
+              .collection('users')
+              .doc(FirebaseService.currentUserId!)
+              .collection('challenges')
+              .doc();
+
+          batch.set(challengeRef, {
+            'id': challengeRef.id,
+            'childId': child.id,
+            'title': template['title'],
+            'description': template['description'],
+            'category': category,
+            'type': 'daily',
+            'xpReward': template['xpReward'],
+            'tips': template['tips'],
+            'isCompleted': false,
+            'completedCount': 0,
+            'createdAt': FieldValue.serverTimestamp(),
+            'dateStr': todayStr,
+          });
+        }
+      }
+
+      await batch.commit();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error generating challenges: $e');
+      }
     }
-
-    // Выбираем по одному челленджу из каждой категории
-    final batch = _firestore.batch();
-    final categories = ['physical', 'cognitive', 'social', 'creative', 'emotional'];
-
-    for (final category in categories) {
-      final templates = _challengeTemplates[category]!;
-      final randomTemplate = templates[DateTime.now().millisecondsSinceEpoch % templates.length];
-
-      final challengeRef = _firestore
-          .collection('users')
-          .doc(FirebaseService.currentUserId!)
-          .collection('challenges')
-          .doc();
-
-      batch.set(challengeRef, {
-        ...randomTemplate,
-        'id': challengeRef.id,
-        'childId': activeChildId,
-        'category': category,
-        'type': 'daily',
-        'dateStr': todayStr,
-        'isCompleted': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
-
-    await batch.commit();
-    debugPrint('Сгенерировано 5 ежедневных челленджей');
   }
 
   // Генерация недельного челленджа
   static Future<void> generateWeeklyChallenge(String? childId) async {
     if (!FirebaseService.isAuthenticated) return;
 
-    final activeChildId = childId ?? (await FirebaseService.getActiveChild())?.id;
-    if (activeChildId == null) return;
+    try {
+      final child = childId != null
+          ? await FirebaseService.getChild(childId)
+          : await FirebaseService.getActiveChild();
 
-    final weekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
+      if (child == null) return;
 
-    // Выбираем случайный недельный челлендж
-    final randomTemplate = _weeklyTemplates[DateTime.now().millisecondsSinceEpoch % _weeklyTemplates.length];
+      // Выбираем случайный недельный челлендж
+      final randomIndex = DateTime.now().millisecondsSinceEpoch % _weeklyChallengeTemplates.length;
+      final template = _weeklyChallengeTemplates[randomIndex];
 
-    await _firestore
-        .collection('users')
-        .doc(FirebaseService.currentUserId!)
-        .collection('challenges')
-        .add({
-      ...randomTemplate,
-      'childId': activeChildId,
-      'type': 'weekly',
-      'weekStart': Timestamp.fromDate(weekStart),
-      'isCompleted': false,
-      'progress': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+      final weekStart = DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
+
+      await _firestore
+          .collection('users')
+          .doc(FirebaseService.currentUserId!)
+          .collection('challenges')
+          .add({
+        'childId': child.id,
+        'title': template['title'],
+        'description': template['description'],
+        'category': template['category'],
+        'type': 'weekly',
+        'xpReward': template['xpReward'],
+        'targetCount': template['targetCount'],
+        'progress': 0,
+        'completedCount': 0,
+        'isCompleted': false,
+        'createdAt': FieldValue.serverTimestamp(),
+        'weekStart': Timestamp.fromDate(weekStart),
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error generating weekly challenge: $e');
+      }
+    }
   }
 
   // Stream ежедневных челленджей
@@ -314,11 +290,13 @@ class ChallengesService {
 
     final challengeData = challengeDoc.data()!;
     final xpReward = challengeData['xpReward'] ?? 50;
+    final completedCount = (challengeData['completedCount'] ?? 0) + 1;
 
     // Обновляем челлендж
     await challengeRef.update({
       'isCompleted': true,
       'completedAt': FieldValue.serverTimestamp(),
+      'completedCount': completedCount,
     });
 
     // Добавляем XP
@@ -378,12 +356,13 @@ class Challenge {
   final String category;
   final String type;
   final int xpReward;
-  final String? tips;
+  final List<String>? tips;
   final bool isCompleted;
   final DateTime createdAt;
   final DateTime? completedAt;
   final int? progress;
   final int? targetCount;
+  final int completedCount;
   final int? rating;
   final String? note;
 
@@ -401,6 +380,7 @@ class Challenge {
     this.completedAt,
     this.progress,
     this.targetCount,
+    required this.completedCount,
     this.rating,
     this.note,
   });
@@ -414,12 +394,13 @@ class Challenge {
       category: data['category'] ?? 'general',
       type: data['type'] ?? 'daily',
       xpReward: data['xpReward'] ?? 50,
-      tips: data['tips'],
+      tips: data['tips'] != null ? List<String>.from(data['tips']) : null,
       isCompleted: data['isCompleted'] ?? false,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      completedAt: (data['completedAt'] as Timestamp?)?.toDate(),
+      completedAt: data['completedAt'] != null ? (data['completedAt'] as Timestamp).toDate() : null,
       progress: data['progress'],
       targetCount: data['targetCount'],
+      completedCount: data['completedCount'] ?? 0,
       rating: data['rating'],
       note: data['note'],
     );

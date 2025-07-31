@@ -2,10 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
+import '../services/challenges_service.dart';
 import '../services/firebase_service.dart';
-import '../services/ai_service.dart';
 
 class DevelopmentScreen extends StatefulWidget {
   const DevelopmentScreen({super.key});
@@ -15,191 +14,27 @@ class DevelopmentScreen extends StatefulWidget {
 }
 
 class _DevelopmentScreenState extends State<DevelopmentScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late AnimationController _progressController;
-
-  ChildProfile? _selectedChild;
-  Map<String, dynamic>? _aiAnalysis;
-  bool _isLoadingAnalysis = false;
-
-  // Вехи развития по возрасту
-  final Map<String, List<DevelopmentMilestone>> _milestones = {
-    '0-6': [
-      DevelopmentMilestone(
-        title: 'Улыбается в ответ',
-        description: 'Начинает улыбаться в ответ на улыбку взрослого',
-        ageMonths: 2,
-        category: 'social',
-      ),
-      DevelopmentMilestone(
-        title: 'Держит голову',
-        description: 'Уверенно держит голову в вертикальном положении',
-        ageMonths: 3,
-        category: 'physical',
-      ),
-      DevelopmentMilestone(
-        title: 'Гулит',
-        description: 'Произносит гласные звуки: "а", "у", "гу"',
-        ageMonths: 3,
-        category: 'speech',
-      ),
-      DevelopmentMilestone(
-        title: 'Хватает игрушки',
-        description: 'Целенаправленно хватает и удерживает предметы',
-        ageMonths: 4,
-        category: 'motor',
-      ),
-      DevelopmentMilestone(
-        title: 'Переворачивается',
-        description: 'Переворачивается со спины на живот и обратно',
-        ageMonths: 5,
-        category: 'physical',
-      ),
-    ],
-    '6-12': [
-      DevelopmentMilestone(
-        title: 'Сидит без поддержки',
-        description: 'Уверенно сидит без опоры',
-        ageMonths: 7,
-        category: 'physical',
-      ),
-      DevelopmentMilestone(
-        title: 'Ползает',
-        description: 'Передвигается ползком',
-        ageMonths: 8,
-        category: 'physical',
-      ),
-      DevelopmentMilestone(
-        title: 'Говорит "мама", "папа"',
-        description: 'Осознанно произносит простые слова',
-        ageMonths: 10,
-        category: 'speech',
-      ),
-      DevelopmentMilestone(
-        title: 'Стоит с опорой',
-        description: 'Встает и стоит, держась за опору',
-        ageMonths: 9,
-        category: 'physical',
-      ),
-      DevelopmentMilestone(
-        title: 'Делает первые шаги',
-        description: 'Начинает ходить самостоятельно',
-        ageMonths: 12,
-        category: 'physical',
-      ),
-    ],
-    '12-24': [
-      DevelopmentMilestone(
-        title: 'Ходит уверенно',
-        description: 'Ходит без поддержки, редко падает',
-        ageMonths: 15,
-        category: 'physical',
-      ),
-      DevelopmentMilestone(
-        title: 'Говорит 10-20 слов',
-        description: 'Активно использует простые слова',
-        ageMonths: 18,
-        category: 'speech',
-      ),
-      DevelopmentMilestone(
-        title: 'Показывает части тела',
-        description: 'Показывает нос, глаза, уши по просьбе',
-        ageMonths: 18,
-        category: 'cognitive',
-      ),
-      DevelopmentMilestone(
-        title: 'Использует ложку',
-        description: 'Самостоятельно ест ложкой',
-        ageMonths: 18,
-        category: 'motor',
-      ),
-      DevelopmentMilestone(
-        title: 'Строит башню из кубиков',
-        description: 'Строит башню из 3-4 кубиков',
-        ageMonths: 20,
-        category: 'motor',
-      ),
-    ],
-    '24-36': [
-      DevelopmentMilestone(
-        title: 'Говорит предложениями',
-        description: 'Составляет простые предложения из 2-3 слов',
-        ageMonths: 24,
-        category: 'speech',
-      ),
-      DevelopmentMilestone(
-        title: 'Прыгает на двух ногах',
-        description: 'Прыгает на месте на двух ногах',
-        ageMonths: 30,
-        category: 'physical',
-      ),
-      DevelopmentMilestone(
-        title: 'Знает основные цвета',
-        description: 'Различает и называет 3-4 основных цвета',
-        ageMonths: 30,
-        category: 'cognitive',
-      ),
-      DevelopmentMilestone(
-        title: 'Играет с другими детьми',
-        description: 'Участвует в совместных играх',
-        ageMonths: 30,
-        category: 'social',
-      ),
-      DevelopmentMilestone(
-        title: 'Контролирует туалет',
-        description: 'Просится на горшок днем',
-        ageMonths: 30,
-        category: 'self-care',
-      ),
-    ],
-  };
+  ChildProfile? _activeChild;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-    _progressController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..forward();
+    _tabController = TabController(length: 3, vsync: this);
     _loadActiveChild();
   }
 
   Future<void> _loadActiveChild() async {
     final child = await FirebaseService.getActiveChild();
-    if (child != null && mounted) {
-      setState(() => _selectedChild = child);
-      _loadAIAnalysis();
-    }
-  }
-
-  Future<void> _loadAIAnalysis() async {
-    if (_selectedChild == null) return;
-
-    setState(() => _isLoadingAnalysis = true);
-
-    try {
-      final analysis = await AIService.getDevelopmentAnalysis(
-        childName: _selectedChild!.name,
-        ageInMonths: _selectedChild!.ageInMonths,
-        language: Localizations.localeOf(context).languageCode,
-      );
-
-      setState(() {
-        _aiAnalysis = analysis;
-        _isLoadingAnalysis = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingAnalysis = false);
-      debugPrint('Error loading AI analysis: $e');
+    if (mounted) {
+      setState(() => _activeChild = child);
     }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _progressController.dispose();
     super.dispose();
   }
 
@@ -208,803 +43,757 @@ class _DevelopmentScreenState extends State<DevelopmentScreen>
     final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Theme.of(context).primaryColor.withOpacity(0.05),
-            ],
-          ),
+      appBar: AppBar(
+        title: Text(loc.development),
+        centerTitle: true,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Вехи развития'),
+            Tab(text: 'График роста'),
+            Tab(text: 'Статистика'),
+          ],
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Заголовок
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back),
-                    ),
-                    Expanded(
-                      child: Text(
-                        loc.development,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    if (_selectedChild != null)
-                      CircleAvatar(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        child: Text(
-                          _selectedChild!.name[0].toUpperCase(),
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              // Табы
-              TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Вехи', icon: Icon(Icons.flag)),
-                  Tab(text: 'Прогресс', icon: Icon(Icons.trending_up)),
-                  Tab(text: 'Навыки', icon: Icon(Icons.star)),
-                  Tab(text: 'AI Анализ', icon: Icon(Icons.psychology)),
-                ],
-                labelColor: Theme.of(context).primaryColor,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: Theme.of(context).primaryColor,
-              ),
-
-              // Контент табов
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildMilestonesTab(),
-                    _buildProgressTab(),
-                    _buildSkillsTab(),
-                    _buildAIAnalysisTab(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+      ),
+      body: _activeChild == null
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+        controller: _tabController,
+        children: [
+          _MilestonesTab(child: _activeChild!),
+          _GrowthChartTab(child: _activeChild!),
+          _StatisticsTab(child: _activeChild!),
+        ],
       ),
     );
   }
+}
 
-  Widget _buildMilestonesTab() {
-    if (_selectedChild == null) {
-      return const Center(child: Text('Выберите ребенка'));
-    }
+// Вкладка вех развития
+class _MilestonesTab extends StatelessWidget {
+  final ChildProfile child;
 
-    final ageMonths = _selectedChild!.ageInMonths;
-    String ageGroup = '0-6';
-    if (ageMonths >= 6 && ageMonths < 12) {
-      ageGroup = '6-12';
-    } else if (ageMonths >= 12 && ageMonths < 24) {
-      ageGroup = '12-24';
-    } else if (ageMonths >= 24) {
-      ageGroup = '24-36';
-    }
+  const _MilestonesTab({required this.child});
 
-    final relevantMilestones = _milestones[ageGroup] ?? [];
+  @override
+  Widget build(BuildContext context) {
+    final milestones = _getMilestonesForAge(child.ageInMonths);
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: relevantMilestones.length,
-      itemBuilder: (context, index) {
-        final milestone = relevantMilestones[index];
-        final isAchieved = ageMonths >= milestone.ageMonths;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Карточка возраста
+        Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: isAchieved
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isAchieved ? Icons.check_circle : Icons.circle_outlined,
-                color: isAchieved ? Colors.green : Colors.grey,
-                size: 30,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.purple.withValues(alpha: 0.1),
+                  Colors.pink.withValues(alpha: 0.1),
+                ],
               ),
             ),
-            title: Text(
-              milestone.title,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isAchieved ? Colors.black : Colors.grey,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
               children: [
-                const SizedBox(height: 4),
-                Text(milestone.description),
-                const SizedBox(height: 4),
                 Text(
-                  'Обычно в ${milestone.ageMonths} мес.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
+                  child.name,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Возраст: ${child.ageFormatted}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _StatItem(
+                      icon: Icons.height,
+                      label: 'Рост',
+                      value: '${child.height.toStringAsFixed(1)} см',
+                      color: Colors.blue,
+                    ),
+                    _StatItem(
+                      icon: Icons.monitor_weight,
+                      label: 'Вес',
+                      value: '${child.weight.toStringAsFixed(1)} кг',
+                      color: Colors.green,
+                    ),
+                    _StatItem(
+                      icon: Icons.abc,
+                      label: 'Слов',
+                      value: '${child.vocabularySize}',
+                      color: Colors.orange,
+                    ),
+                  ],
                 ),
               ],
             ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _getMilestoneColor(milestone.category).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _getMilestoneCategory(milestone.category),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _getMilestoneColor(milestone.category),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
           ),
-        ).animate()
-            .fadeIn(delay: Duration(milliseconds: index * 100))
-            .slideX(begin: 0.2);
-      },
-    );
-  }
+        ).animate().fadeIn().slideY(begin: -0.1, end: 0),
 
-  Widget _buildProgressTab() {
-    if (_selectedChild == null) {
-      return const Center(child: Text('Выберите ребенка'));
-    }
+        const SizedBox(height: 20),
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // График роста
-          _buildGrowthChart(),
-          const SizedBox(height: 32),
-
-          // Статистика развития
-          _buildDevelopmentStats(),
-          const SizedBox(height: 32),
-
-          // График прогресса по категориям
-          _buildCategoryProgress(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGrowthChart() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.show_chart,
-                color: Theme.of(context).primaryColor,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'График роста',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 200,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 10,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.withOpacity(0.2),
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      interval: 3,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          '${value.toInt()} мес',
-                          style: const TextStyle(fontSize: 10),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 10,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          '${value.toInt()} см',
-                          style: const TextStyle(fontSize: 10),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: _selectedChild!.ageInMonths.toDouble(),
-                minY: 40,
-                maxY: 100,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: _generateGrowthData(),
-                    isCurved: true,
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).primaryColor,
-                        Theme.of(context).primaryColor.withOpacity(0.5),
-                      ],
-                    ),
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 4,
-                          color: Colors.white,
-                          strokeWidth: 2,
-                          strokeColor: Theme.of(context).primaryColor,
-                        );
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          Theme.of(context).primaryColor.withOpacity(0.2),
-                          Theme.of(context).primaryColor.withOpacity(0.0),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDevelopmentStats() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+        // Вехи развития
         Text(
-          'Статистика развития',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          'Вехи развития для ${child.ageInYears} ${_getYearWord(child.ageInYears)}',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: _buildStatCard('Рост', '${_selectedChild!.height ?? 0} см', Icons.height, Colors.blue)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildStatCard('Вес', '${_selectedChild!.weight ?? 0} кг', Icons.monitor_weight, Colors.green)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(child: _buildStatCard('Слов', '${_selectedChild!.vocabularySize ?? 0}', Icons.abc, Colors.purple)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildStatCard('Навыков', '25', Icons.star, Colors.orange)),
-          ],
-        ),
+
+        ...milestones.map((category) {
+          final categoryData = category.entries.first;
+          return _MilestoneCategoryCard(
+            category: categoryData.key,
+            milestones: categoryData.value,
+            childMilestones: child.milestones[categoryData.key] ?? {},
+          );
+        }),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+  String _getYearWord(int years) {
+    if (years % 10 == 1 && years % 100 != 11) return 'год';
+    if ([2, 3, 4].contains(years % 10) && ![12, 13, 14].contains(years % 100)) return 'года';
+    return 'лет';
+  }
+
+  List<Map<String, List<Map<String, dynamic>>>> _getMilestonesForAge(int ageInMonths) {
+    // Вехи развития по возрастам
+    if (ageInMonths < 3) {
+      return [
+        {
+          'physical': [
+            {'title': 'Держит голову', 'desc': 'Может удерживать голову прямо'},
+            {'title': 'Следит глазами', 'desc': 'Следит за движущимися предметами'},
+          ]
+        },
+        {
+          'social': [
+            {'title': 'Улыбается', 'desc': 'Социальная улыбка в ответ'},
+            {'title': 'Узнает голоса', 'desc': 'Различает знакомые голоса'},
+          ]
+        },
+      ];
+    } else if (ageInMonths < 6) {
+      return [
+        {
+          'physical': [
+            {'title': 'Переворачивается', 'desc': 'С живота на спину и обратно'},
+            {'title': 'Хватает игрушки', 'desc': 'Целенаправленно берет предметы'},
+          ]
+        },
+        {
+          'cognitive': [
+            {'title': 'Изучает предметы', 'desc': 'Рассматривает и трогает'},
+            {'title': 'Реагирует на имя', 'desc': 'Поворачивается на свое имя'},
+          ]
+        },
+      ];
+    } else if (ageInMonths < 12) {
+      return [
+        {
+          'physical': [
+            {'title': 'Сидит без поддержки', 'desc': 'Уверенно сидит сам'},
+            {'title': 'Ползает', 'desc': 'Передвигается на четвереньках'},
+            {'title': 'Встает с опорой', 'desc': 'Подтягивается и стоит'},
+          ]
+        },
+        {
+          'language': [
+            {'title': 'Лепетает', 'desc': 'Произносит слоги ба-ба, ма-ма'},
+            {'title': 'Понимает "нет"', 'desc': 'Реагирует на запреты'},
+          ]
+        },
+      ];
+    } else {
+      return [
+        {
+          'physical': [
+            {'title': 'Ходит самостоятельно', 'desc': 'Делает первые шаги'},
+            {'title': 'Поднимается по лестнице', 'desc': 'С поддержкой за руку'},
+          ]
+        },
+        {
+          'language': [
+            {'title': 'Говорит слова', 'desc': 'Произносит 5-10 слов'},
+            {'title': 'Показывает части тела', 'desc': 'По просьбе взрослого'},
+          ]
+        },
+      ];
+    }
+  }
+}
+
+// Карточка категории вех
+class _MilestoneCategoryCard extends StatelessWidget {
+  final String category;
+  final List<Map<String, dynamic>> milestones;
+  final Map<String, dynamic> childMilestones;
+
+  const _MilestoneCategoryCard({
+    required this.category,
+    required this.milestones,
+    required this.childMilestones,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              color: color.withOpacity(0.8),
-            ),
-          ),
-        ],
-      ),
-    ).animate()
-        .fadeIn()
-        .scale(begin: const Offset(0.8, 0.8));
-  }
-
-  Widget _buildCategoryProgress() {
-    final categories = [
-      {'name': 'Физическое', 'progress': 0.8, 'color': Colors.orange},
-      {'name': 'Когнитивное', 'progress': 0.7, 'color': Colors.blue},
-      {'name': 'Речевое', 'progress': 0.6, 'color': Colors.green},
-      {'name': 'Социальное', 'progress': 0.75, 'color': Colors.purple},
-      {'name': 'Моторика', 'progress': 0.85, 'color': Colors.red},
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Прогресс по категориям',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          ...categories.map((category) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        category['name'] as String,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                      Text(
-                        '${((category['progress'] as double) * 100).toInt()}%',
-                        style: TextStyle(
-                          color: category['color'] as Color,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _getCategoryColor(category).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(height: 8),
-                  AnimatedBuilder(
-                    animation: _progressController,
-                    builder: (context, child) {
-                      return LinearProgressIndicator(
-                        value: (category['progress'] as double) * _progressController.value,
-                        backgroundColor: (category['color'] as Color).withOpacity(0.2),
-                        valueColor: AlwaysStoppedAnimation<Color>(category['color'] as Color),
-                        minHeight: 8,
-                      );
-                    },
+                  child: Icon(
+                    _getCategoryIcon(category),
+                    color: _getCategoryColor(category),
                   ),
-                ],
-              ),
-            );
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSkillsTab() {
-    final skills = [
-      {'category': 'motor', 'title': 'Держит карандаш', 'achieved': true},
-      {'category': 'cognitive', 'title': 'Знает цвета', 'achieved': true},
-      {'category': 'speech', 'title': 'Говорит предложениями', 'achieved': false},
-      {'category': 'social', 'title': 'Играет с детьми', 'achieved': true},
-      {'category': 'self-care', 'title': 'Одевается сам', 'achieved': false},
-    ];
-
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        // Фильтр по категориям
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildFilterChip('Все', true),
-              const SizedBox(width: 8),
-              _buildFilterChip('Моторика', false),
-              const SizedBox(width: 8),
-              _buildFilterChip('Речь', false),
-              const SizedBox(width: 8),
-              _buildFilterChip('Социальные', false),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Список навыков
-        ...skills.map((skill) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  _getCategoryName(category),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
-            child: ListTile(
-              leading: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: (skill['achieved'] as bool)
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.grey.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  (skill['achieved'] as bool) ? Icons.check : Icons.circle_outlined,
-                  color: (skill['achieved'] as bool) ? Colors.green : Colors.grey,
-                ),
-              ),
-              title: Text(skill['title'] as String),
-              subtitle: Text(_getMilestoneCategory(skill['category'] as String)),
-              trailing: IconButton(
-                onPressed: () {
-                  // Переключить статус навыка
-                },
-                icon: Icon(
-                  Icons.more_vert,
-                  color: Colors.grey.shade400,
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ],
-    );
-  }
-
-  Widget _buildFilterChip(String label, bool isSelected) {
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        // Обработка фильтра
-      },
-      selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-      checkmarkColor: Theme.of(context).primaryColor,
-    );
-  }
-
-  Widget _buildAIAnalysisTab() {
-    if (_selectedChild == null) {
-      return const Center(child: Text('Выберите ребенка'));
-    }
-
-    if (_isLoadingAnalysis) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text(
-              'Анализирую развитие ${_selectedChild!.name}...',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      );
-    }
+            ...milestones.map((milestone) {
+              final isCompleted = childMilestones[milestone['title']] ?? false;
 
-    if (_aiAnalysis == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.psychology,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadAIAnalysis,
-              child: const Text('Получить AI анализ'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Сводка
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.purple.withOpacity(0.1),
-                  Colors.blue.withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.psychology,
-                      color: Colors.purple,
-                      size: 28,
+                    Checkbox(
+                      value: isCompleted,
+                      onChanged: (value) {
+                        // TODO: Update milestone status
+                      },
+                      activeColor: _getCategoryColor(category),
                     ),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        'AI Анализ развития',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            milestone['title'],
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            milestone['desc'],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  _aiAnalysis!['summary'] ?? '',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Сильные стороны
-          _buildAnalysisSection(
-            'Сильные стороны',
-            Icons.star,
-            Colors.amber,
-            _aiAnalysis!['strengths'] ?? [],
-          ),
-          const SizedBox(height: 20),
-
-          // Рекомендации
-          _buildAnalysisSection(
-            'Рекомендации',
-            Icons.lightbulb,
-            Colors.blue,
-            _aiAnalysis!['suggestions'] ?? [],
-          ),
-        ],
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAnalysisSection(String title, IconData icon, Color color, List<dynamic> items) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...items.map((item) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(top: 6),
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      item.toString(),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  List<FlSpot> _generateGrowthData() {
-    // Генерируем примерные данные роста
-    final List<FlSpot> spots = [];
-    final currentHeight = _selectedChild!.height ?? 50;
-    final ageMonths = _selectedChild!.ageInMonths;
-
-    for (int i = 0; i <= ageMonths; i++) {
-      final height = 50 + (i * 2.5) + (i * 0.1);
-      spots.add(FlSpot(i.toDouble(), height));
-    }
-
-    return spots;
-  }
-
-  Color _getMilestoneColor(String category) {
+  Color _getCategoryColor(String category) {
     switch (category) {
       case 'physical':
-        return Colors.orange;
-      case 'cognitive':
         return Colors.blue;
-      case 'speech':
+      case 'cognitive':
+        return Colors.orange;
+      case 'language':
         return Colors.green;
       case 'social':
         return Colors.purple;
-      case 'motor':
-        return Colors.red;
-      case 'self-care':
-        return Colors.teal;
       default:
         return Colors.grey;
     }
   }
 
-  String _getMilestoneCategory(String category) {
+  IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'physical':
-        return 'Физическое';
+        return Icons.directions_run;
       case 'cognitive':
-        return 'Когнитивное';
-      case 'speech':
-        return 'Речевое';
+        return Icons.psychology;
+      case 'language':
+        return Icons.chat;
       case 'social':
-        return 'Социальное';
-      case 'motor':
-        return 'Моторика';
-      case 'self-care':
-        return 'Самообслуживание';
+        return Icons.people;
       default:
-        return 'Общее';
+        return Icons.check_circle;
+    }
+  }
+
+  String _getCategoryName(String category) {
+    switch (category) {
+      case 'physical':
+        return 'Физическое развитие';
+      case 'cognitive':
+        return 'Познавательное развитие';
+      case 'language':
+        return 'Речевое развитие';
+      case 'social':
+        return 'Социальное развитие';
+      default:
+        return 'Развитие';
     }
   }
 }
 
-// Модель вехи развития
-class DevelopmentMilestone {
-  final String title;
-  final String description;
-  final int ageMonths;
-  final String category;
+// Вкладка графика роста
+class _GrowthChartTab extends StatelessWidget {
+  final ChildProfile child;
 
-  DevelopmentMilestone({
+  const _GrowthChartTab({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          _GrowthChart(
+            title: 'Рост (см)',
+            currentValue: child.height,
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 24),
+          _GrowthChart(
+            title: 'Вес (кг)',
+            currentValue: child.weight,
+            color: Colors.green,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// График роста
+class _GrowthChart extends StatelessWidget {
+  final String title;
+  final double currentValue;
+  final Color color;
+
+  const _GrowthChart({
     required this.title,
-    required this.description,
-    required this.ageMonths,
-    required this.category,
+    required this.currentValue,
+    required this.color,
   });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Текущее значение: ${currentValue.toStringAsFixed(1)}',
+              style: TextStyle(
+                fontSize: 16,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 200,
+              padding: const EdgeInsets.only(right: 16),
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                        strokeWidth: 1,
+                      );
+                    },
+                    getDrawingVerticalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withValues(alpha: 0.3),
+                        strokeWidth: 1,
+                      );
+                    },
+                  ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: 1,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toInt()} мес',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 10,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  minX: 0,
+                  maxX: 12,
+                  minY: 0,
+                  maxY: currentValue * 1.5,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: [
+                        FlSpot(0, currentValue * 0.7),
+                        FlSpot(3, currentValue * 0.8),
+                        FlSpot(6, currentValue * 0.9),
+                        FlSpot(9, currentValue * 0.95),
+                        FlSpot(12, currentValue),
+                      ],
+                      isCurved: true,
+                      color: color,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 4,
+                            color: Colors.white,
+                            strokeWidth: 2,
+                            strokeColor: color,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: color.withValues(alpha: 0.1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Вкладка статистики
+class _StatisticsTab extends StatelessWidget {
+  final ChildProfile child;
+
+  const _StatisticsTab({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Общая статистика
+        Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Общая статистика',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildStatRow('Возраст', child.ageFormatted),
+                _buildStatRow('Рост', '${child.height} см'),
+                _buildStatRow('Вес', '${child.weight} кг'),
+                _buildStatRow('Словарный запас', '${child.vocabularySize} слов'),
+                const Divider(height: 32),
+                _buildStatRow('Питомец', '${child.petName} ${child.petType}'),
+                const SizedBox(height: 16),
+                // Статы питомца
+                ...child.petStats.entries.map((stat) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _getStatName(stat.key),
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            Text(
+                              '${stat.value}%',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        LinearProgressIndicator(
+                          value: stat.value / 100,
+                          backgroundColor: Colors.grey.shade300,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _getStatColor(stat.key),
+                          ),
+                          minHeight: 6,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Активность
+        StreamBuilder<List<StoryData>>(
+          stream: FirebaseService.getStoriesStream(child.id),
+          builder: (context, storySnapshot) {
+            final stories = storySnapshot.data ?? [];
+
+            return StreamBuilder<List<Challenge>>(
+              stream: ChallengesService.getCompletedChallengesStream(childId: child.id),
+              builder: (context, challengeSnapshot) {
+                final challenges = challengeSnapshot.data ?? [];
+
+                return Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Активность',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildStatRow('Создано сказок', '${stories.length}'),
+                        _buildStatRow('Выполнено челленджей', '${challenges.length}'),
+                        _buildStatRow(
+                            'Любимых сказок',
+                            '${stories.where((s) => s.isFavorite).length}'
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getStatName(String key) {
+    switch (key) {
+      case 'happiness':
+        return 'Счастье';
+      case 'energy':
+        return 'Энергия';
+      case 'knowledge':
+        return 'Знания';
+      default:
+        return key;
+    }
+  }
+
+  Color _getStatColor(String key) {
+    switch (key) {
+      case 'happiness':
+        return Colors.pink;
+      case 'energy':
+        return Colors.orange;
+      case 'knowledge':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+}
+
+// Вспомогательный виджет для статистики
+class _StatItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 24,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -1,5 +1,6 @@
 // lib/services/topic_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'firebase_service.dart';
 import 'dart:math';
 
@@ -202,7 +203,9 @@ class TopicService {
 
       return null;
     } catch (e) {
-      print('Error getting today topic: $e');
+      if (kDebugMode) {
+        print('Error getting today topic: $e');
+      }
       return null;
     }
   }
@@ -242,7 +245,9 @@ class TopicService {
         'likesCount': 0,
       });
     } catch (e) {
-      print('Error generating today topic: $e');
+      if (kDebugMode) {
+        print('Error generating today topic: $e');
+      }
     }
   }
 

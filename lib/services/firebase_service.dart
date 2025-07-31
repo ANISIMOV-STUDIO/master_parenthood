@@ -1,36 +1,50 @@
 // lib/services/firebase_service.dart
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
 
 class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseStorage _storage = FirebaseStorage.instance;
-  static final GoogleSignIn _googleSignIn = GoogleSignIn();
-
-  // Firebase Functions URLs - замените на ваши реальные URLs
-  static const String _functionsBaseUrl = 'https://your-project.cloudfunctions.net';
-
-  // Getters
-  static User? get currentUser => _auth.currentUser;
-  static bool get isAuthenticated => currentUser != null;
-  static String? get currentUserEmail => currentUser?.email;
-  static String? get currentUserName => currentUser?.displayName;
-  static String? get currentUserId => currentUser?.uid;
-
-  // Stream для отслеживания состояния авторизации
-  static Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   // ===== АВТОРИЗАЦИЯ =====
 
-  // Email/Password авторизация
+  static User? get currentUser => _auth.currentUser;
+  static String? get currentUserId => _auth.currentUser?.uid;
+  static bool get isAuthenticated => _auth.currentUser != null;
+
+  // Stream состояния авторизации
+  static Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Регистрация через email
+  static Future<User?> signUpWithEmail({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (credential.user != null) {
+        await credential.user!.updateDisplayName(displayName);
+        await _createUserProfile(credential.user!);
+      }
+
+      return credential.user;
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
+  // Вход через email
   static Future<User?> signInWithEmail({
     required String email,
     required String password,
@@ -41,177 +55,44 @@ class FirebaseService {
         password: password,
       );
 
-      await _ensureUserProfile(credential.user);
-      return credential.user;
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
-    }
-  }
-
-  // Email/Password регистрация
-  static Future<User?> registerWithEmail({
-    required String email,
-    required String password,
-    required String parentName,
-  }) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
       if (credential.user != null) {
-        await credential.user!.updateDisplayName(parentName);
-
-        await _createUserProfile(
-          user: credential.user!,
-          additionalData: {'parentName': parentName},
-        );
+        await _updateLastLogin(credential.user!.uid);
       }
 
       return credential.user;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
-    }
-  }
-
-  // Google авторизация
-  static Future<User?> signInWithGoogle() async {
-    try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null;
-
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final userCredential = await _auth.signInWithCredential(credential);
-      await _ensureUserProfile(userCredential.user);
-
-      return userCredential.user;
-    } catch (e) {
-      throw Exception('Ошибка входа через Google: $e');
-    }
-  }
-
-  // Facebook авторизация
-  static Future<User?> signInWithFacebook() async {
-    try {
-      final LoginResult result = await FacebookAuth.instance.login();
-
-      if (result.status == LoginStatus.success) {
-        final OAuthCredential credential =
-        FacebookAuthProvider.credential(result.accessToken!.token);
-
-        final userCredential = await _auth.signInWithCredential(credential);
-        await _ensureUserProfile(userCredential.user);
-
-        return userCredential.user;
-      } else if (result.status == LoginStatus.cancelled) {
-        return null;
-      } else {
-        throw Exception('Ошибка входа через Facebook: ${result.message}');
-      }
-    } catch (e) {
-      throw Exception('Ошибка входа через Facebook: $e');
-    }
-  }
-
-  // VK авторизация (через Custom Auth)
-  static Future<User?> signInWithVK({
-    required String vkUserId,
-    required String vkAccessToken,
-    required String vkEmail,
-  }) async {
-    try {
-      final customToken = await _getVKCustomToken(
-        userId: vkUserId,
-        accessToken: vkAccessToken,
-        email: vkEmail,
-      );
-
-      final userCredential = await _auth.signInWithCustomToken(customToken);
-      await _ensureUserProfile(userCredential.user);
-
-      return userCredential.user;
-    } catch (e) {
-      throw Exception('Ошибка входа через VK: $e');
-    }
-  }
-
-  // Яндекс авторизация (через Custom Auth)
-  static Future<User?> signInWithYandex({
-    required String accessToken,
-  }) async {
-    try {
-      final customToken = await _getYandexCustomToken(
-        accessToken: accessToken,
-      );
-
-      final userCredential = await _auth.signInWithCustomToken(customToken);
-      await _ensureUserProfile(userCredential.user);
-
-      return userCredential.user;
-    } catch (e) {
-      throw Exception('Ошибка входа через Яндекс: $e');
     }
   }
 
   // Выход
   static Future<void> signOut() async {
     await _auth.signOut();
-    await _googleSignIn.signOut();
-    await FacebookAuth.instance.logOut();
   }
 
-  // Сброс пароля
-  static Future<void> resetPassword(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
-  }
-
-  // ===== УПРАВЛЕНИЕ ПРОФИЛЕМ =====
+  // ===== ПРОФИЛИ =====
 
   // Создание профиля пользователя
-  static Future<void> _createUserProfile({
-    required User user,
-    Map<String, dynamic>? additionalData,
-  }) async {
-    final userDoc = _firestore.collection('users').doc(user.uid);
-    final docSnapshot = await userDoc.get();
+  static Future<void> _createUserProfile(User user) async {
+    final profile = {
+      'uid': user.uid,
+      'email': user.email,
+      'displayName': user.displayName ?? 'Родитель',
+      'photoURL': user.photoURL,
+      'level': 1,
+      'xp': 0,
+      'subscription': 'free',
+      'createdAt': FieldValue.serverTimestamp(),
+      'lastLogin': FieldValue.serverTimestamp(),
+      'provider': user.providerData.isNotEmpty ? user.providerData.first.providerId : 'email',
+    };
 
-    if (!docSnapshot.exists) {
-      final userData = {
-        'uid': user.uid,
-        'email': user.email,
-        'displayName': user.displayName ?? additionalData?['parentName'] ?? 'Родитель',
-        'photoURL': user.photoURL,
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastLogin': FieldValue.serverTimestamp(),
-        'level': 1,
-        'xp': 0,
-        'subscription': 'free',
-        'provider': user.providerData.first.providerId,
-        ...?additionalData,
-        'activeChildId': null,
-      };
-
-      await userDoc.set(userData);
-    }
-  }
-
-  // Проверка и создание профиля при необходимости
-  static Future<void> _ensureUserProfile(User? user) async {
-    if (user != null) {
-      await _createUserProfile(user: user);
-      await _updateLastLogin(user.uid);
-    }
+    await _firestore.collection('users').doc(user.uid).set(profile);
   }
 
   // Обновление времени последнего входа
-  static Future<void> _updateLastLogin(String userId) async {
-    await _firestore.collection('users').doc(userId).update({
+  static Future<void> _updateLastLogin(String uid) async {
+    await _firestore.collection('users').doc(uid).update({
       'lastLogin': FieldValue.serverTimestamp(),
     });
   }
@@ -238,6 +119,49 @@ class FirebaseService {
         .map((doc) => doc.exists ? UserProfile.fromFirestore(doc) : null);
   }
 
+  // ===== ДЕТИ =====
+
+  // Добавление ребенка
+  static Future<String> addChild({
+    required String name,
+    required DateTime birthDate,
+    required String gender,
+    required double height,
+    required double weight,
+    String petName = 'Единорог',
+    String petType = '🦄',
+  }) async {
+    if (!isAuthenticated) throw Exception('Не авторизован');
+
+    final childRef = await _firestore
+        .collection('users')
+        .doc(currentUserId!)
+        .collection('children')
+        .add({
+      'name': name,
+      'birthDate': Timestamp.fromDate(birthDate),
+      'gender': gender,
+      'height': height,
+      'weight': weight,
+      'petName': petName,
+      'petType': petType,
+      'petStats': {
+        'happiness': 50,
+        'energy': 50,
+        'knowledge': 50,
+      },
+      'milestones': {},
+      'vocabularySize': 0,
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Устанавливаем как активного ребенка
+    await setActiveChild(childRef.id);
+
+    return childRef.id;
+  }
+
   // Установка активного ребенка
   static Future<void> setActiveChild(String childId) async {
     if (!isAuthenticated) return;
@@ -255,86 +179,30 @@ class FirebaseService {
     final activeChildId = userDoc.data()?['activeChildId'];
 
     if (activeChildId != null) {
-      return await getChild(activeChildId);
+      return getChild(activeChildId);
     }
 
-    // Если активный ребенок не установлен, возвращаем первого
-    final children = await getChildrenStream().first;
-    if (children.isNotEmpty) {
-      await setActiveChild(children.first.id);
-      return children.first;
+    // Если нет активного, берем первого
+    final children = await _firestore
+        .collection('users')
+        .doc(currentUserId!)
+        .collection('children')
+        .limit(1)
+        .get();
+
+    if (children.docs.isNotEmpty) {
+      final firstChild = ChildProfile.fromFirestore(
+        children.docs.first.data(),
+        children.docs.first.id,
+      );
+      await setActiveChild(firstChild.id);
+      return firstChild;
     }
 
     return null;
   }
 
-  // ===== УПРАВЛЕНИЕ ДЕТЬМИ =====
-
-  // Добавление ребенка
-  static Future<String> addChild({
-    required String name,
-    required DateTime birthDate,
-    required String gender,
-    double? height,
-    double? weight,
-  }) async {
-    if (!isAuthenticated) throw Exception('Пользователь не авторизован');
-
-    final childRef = _firestore
-        .collection('users')
-        .doc(currentUserId!)
-        .collection('children')
-        .doc();
-
-    final childData = {
-      'id': childRef.id,
-      'name': name,
-      'birthDate': Timestamp.fromDate(birthDate),
-      'gender': gender,
-      'height': height ?? 0,
-      'weight': weight ?? 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-      'petName': 'Питомец',
-      'petType': '🦄',
-      'petStats': {
-        'happiness': 50,
-        'energy': 50,
-        'knowledge': 50,
-      },
-      'milestones': {},
-    };
-
-    await childRef.set(childData);
-
-    // Если это первый ребенок, делаем его активным
-    final userDoc = await _firestore.collection('users').doc(currentUserId!).get();
-    if (userDoc.data()?['activeChildId'] == null) {
-      await setActiveChild(childRef.id);
-    }
-
-    return childRef.id;
-  }
-
-  // Обновление данных ребенка
-  static Future<void> updateChild({
-    required String childId,
-    required Map<String, dynamic> data,
-  }) async {
-    if (!isAuthenticated) throw Exception('Пользователь не авторизован');
-
-    await _firestore
-        .collection('users')
-        .doc(currentUserId!)
-        .collection('children')
-        .doc(childId)
-        .update({
-      ...data,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  // Получение данных ребенка
+  // Получение ребенка по ID
   static Future<ChildProfile?> getChild(String childId) async {
     if (!isAuthenticated) return null;
 
@@ -364,6 +232,42 @@ class FirebaseService {
         .map((snapshot) => snapshot.docs
         .map((doc) => ChildProfile.fromFirestore(doc.data(), doc.id))
         .toList());
+  }
+
+  // Загрузка фото ребенка
+  static Future<String?> uploadChildPhoto({
+    required File file,
+    required String childId,
+  }) async {
+    if (!isAuthenticated) return null;
+
+    try {
+      final ref = _storage
+          .ref()
+          .child('users')
+          .child(currentUserId!)
+          .child('children')
+          .child(childId)
+          .child('photo.jpg');
+
+      await ref.putFile(file);
+      final url = await ref.getDownloadURL();
+
+      // Обновляем профиль ребенка
+      await _firestore
+          .collection('users')
+          .doc(currentUserId!)
+          .collection('children')
+          .doc(childId)
+          .update({'photoURL': url});
+
+      return url;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error uploading photo: $e');
+      }
+      return null;
+    }
   }
 
   // ===== ДОСТИЖЕНИЯ И XP =====
@@ -400,6 +304,28 @@ class FirebaseService {
   static int _calculateLevel(int xp) {
     // Простая формула: каждый уровень требует 1000 XP
     return (xp / 1000).floor() + 1;
+  }
+
+  // Создание уведомления о новом уровне
+  static Future<void> _createLevelUpNotification(int level) async {
+    // TODO: Реализовать push-уведомления
+    if (kDebugMode) {
+      print('Level up! New level: $level');
+    }
+  }
+
+  // Stream достижений
+  static Stream<List<Achievement>> getAchievementsStream() {
+    if (!isAuthenticated) return Stream.value([]);
+
+    return _firestore
+        .collection('users')
+        .doc(currentUserId!)
+        .collection('achievements')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+        .map((doc) => Achievement.fromFirestore(doc.data(), doc.id))
+        .toList());
   }
 
   // Обновление достижения
@@ -507,150 +433,23 @@ class FirebaseService {
         .toList());
   }
 
-  // ===== ФАЙЛОВОЕ ХРАНИЛИЩЕ =====
-
-  // Загрузка изображения
-  static Future<String?> uploadImage({
-    required File file,
-    required String path,
-  }) async {
-    if (!isAuthenticated) return null;
-
-    try {
-      final ref = _storage.ref().child('users/$currentUserId/$path');
-      final uploadTask = await ref.putFile(file);
-      final url = await uploadTask.ref.getDownloadURL();
-      return url;
-    } catch (e) {
-      debugPrint('Ошибка загрузки изображения: $e');
-      return null;
-    }
-  }
-
-  // Загрузка аватара пользователя
-  static Future<String?> uploadUserAvatar(File file) async {
-    final url = await uploadImage(
-      file: file,
-      path: 'avatar/${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
-
-    if (url != null) {
-      await currentUser?.updatePhotoURL(url);
-      await _firestore.collection('users').doc(currentUserId!).update({
-        'photoURL': url,
-      });
-    }
-
-    return url;
-  }
-
-  // Загрузка фото ребенка
-  static Future<String?> uploadChildPhoto({
-    required File file,
-    required String childId,
-  }) async {
-    final url = await uploadImage(
-      file: file,
-      path: 'children/$childId/${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
-
-    if (url != null) {
-      await updateChild(
-        childId: childId,
-        data: {'photoURL': url},
-      );
-    }
-
-    return url;
-  }
-
-  // ===== УВЕДОМЛЕНИЯ =====
-
-  static Future<void> _createLevelUpNotification(int newLevel) async {
-    await _firestore
-        .collection('users')
-        .doc(currentUserId!)
-        .collection('notifications')
-        .add({
-      'type': 'level_up',
-      'title': 'Новый уровень!',
-      'message': 'Поздравляем! Вы достигли $newLevel уровня!',
-      'isRead': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
-
   // ===== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ =====
 
-  // Получение custom token для VK
-  static Future<String> _getVKCustomToken({
-    required String userId,
-    required String accessToken,
-    required String email,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_functionsBaseUrl/createVKCustomToken'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userId': userId,
-          'accessToken': accessToken,
-          'email': email,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['customToken'];
-      } else {
-        throw Exception('Ошибка получения токена: ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Ошибка VK авторизации: $e');
-    }
-  }
-
-  // Получение custom token для Яндекс
-  static Future<String> _getYandexCustomToken({
-    required String accessToken,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_functionsBaseUrl/createYandexCustomToken'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'accessToken': accessToken,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['customToken'];
-      } else {
-        throw Exception('Ошибка получения токена: ${response.body}');
-      }
-    } catch (e) {
-      throw Exception('Ошибка Яндекс авторизации: $e');
-    }
-  }
-
-  // Обработка ошибок аутентификации
+  // Обработка ошибок авторизации
   static String _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
-      case 'user-not-found':
-        return 'Пользователь не найден';
-      case 'wrong-password':
-        return 'Неверный пароль';
+      case 'weak-password':
+        return 'Слишком слабый пароль';
       case 'email-already-in-use':
         return 'Email уже используется';
       case 'invalid-email':
         return 'Неверный формат email';
-      case 'weak-password':
-        return 'Слишком простой пароль';
-      case 'network-request-failed':
-        return 'Ошибка сети';
+      case 'user-not-found':
+        return 'Пользователь не найден';
+      case 'wrong-password':
+        return 'Неверный пароль';
       case 'user-disabled':
-        return 'Пользователь заблокирован';
+        return 'Аккаунт заблокирован';
       case 'too-many-requests':
         return 'Слишком много попыток. Попробуйте позже';
       default:
@@ -724,6 +523,7 @@ class ChildProfile {
   final String petType;
   final Map<String, int> petStats;
   final Map<String, dynamic> milestones;
+  final int vocabularySize;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -739,6 +539,7 @@ class ChildProfile {
     required this.petType,
     required this.petStats,
     required this.milestones,
+    required this.vocabularySize,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -803,6 +604,7 @@ class ChildProfile {
         'knowledge': 50,
       }),
       milestones: data['milestones'] ?? {},
+      vocabularySize: data['vocabularySize'] ?? 0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -820,6 +622,7 @@ class ChildProfile {
       'petType': petType,
       'petStats': petStats,
       'milestones': milestones,
+      'vocabularySize': vocabularySize,
       'updatedAt': FieldValue.serverTimestamp(),
     };
   }
@@ -857,4 +660,94 @@ class StoryData {
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
+}
+
+// Достижение
+class Achievement {
+  final String id;
+  final String title;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final int xpReward;
+  final bool unlocked;
+  final double progress;
+  final DateTime? unlockedAt;
+
+  Achievement({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.xpReward,
+    required this.unlocked,
+    required this.progress,
+    this.unlockedAt,
+  });
+
+  factory Achievement.fromFirestore(Map<String, dynamic> data, String id) {
+    // Маппинг ID достижений на иконки и цвета
+    final achievementConfig = _achievementConfigs[id] ?? _defaultAchievementConfig;
+
+    return Achievement(
+      id: id,
+      title: achievementConfig['title'] ?? 'Достижение',
+      description: achievementConfig['description'] ?? '',
+      icon: achievementConfig['icon'] ?? Icons.stars,
+      color: achievementConfig['color'] ?? Colors.purple,
+      xpReward: achievementConfig['xpReward'] ?? 100,
+      unlocked: data['unlocked'] ?? false,
+      progress: (data['progress'] ?? 0).toDouble(),
+      unlockedAt: data['unlockedAt'] != null
+          ? (data['unlockedAt'] as Timestamp).toDate()
+          : null,
+    );
+  }
+
+  static final Map<String, Map<String, dynamic>> _achievementConfigs = {
+    'first_story': {
+      'title': 'Первая сказка',
+      'description': 'Создайте первую сказку для ребенка',
+      'icon': Icons.auto_stories,
+      'color': Colors.blue,
+      'xpReward': 100,
+    },
+    'story_master': {
+      'title': 'Мастер сказок',
+      'description': 'Создайте 10 сказок',
+      'icon': Icons.menu_book,
+      'color': Colors.purple,
+      'xpReward': 500,
+    },
+    'daily_reader': {
+      'title': 'Ежедневное чтение',
+      'description': 'Читайте сказки 7 дней подряд',
+      'icon': Icons.today,
+      'color': Colors.green,
+      'xpReward': 300,
+    },
+    'challenge_champion': {
+      'title': 'Чемпион челленджей',
+      'description': 'Выполните 20 челленджей',
+      'icon': Icons.emoji_events,
+      'color': Colors.orange,
+      'xpReward': 400,
+    },
+    'pet_lover': {
+      'title': 'Любитель питомцев',
+      'description': 'Максимально прокачайте питомца',
+      'icon': Icons.pets,
+      'color': Colors.pink,
+      'xpReward': 600,
+    },
+  };
+
+  static final Map<String, dynamic> _defaultAchievementConfig = {
+    'title': 'Достижение',
+    'description': 'Выполните задание',
+    'icon': Icons.stars,
+    'color': Colors.purple,
+    'xpReward': 100,
+  };
 }
