@@ -92,8 +92,42 @@ class _StoryGeneratorScreenState extends State<StoryGeneratorScreen> {
         _isGenerating = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: ${e.toString()}')),
+        final errorMessage = e.toString().replaceAll('Exception: ', '');
+        final isNetworkError = errorMessage.contains('internet') || 
+                               errorMessage.contains('Network') || 
+                               errorMessage.contains('timeout');
+        
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    isNetworkError ? Icons.wifi_off : Icons.error_outline,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Ошибка'),
+                ],
+              ),
+              content: Text(errorMessage),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Закрыть'),
+                ),
+                if (isNetworkError) 
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _generateStory();
+                    },
+                    child: const Text('Повторить'),
+                  ),
+              ],
+            );
+          },
         );
       }
     }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Провайдеры
 import 'providers/locale_provider.dart';
@@ -19,6 +20,7 @@ import 'l10n/app_localizations.dart';
 
 // Сервисы
 import 'services/firebase_service.dart';
+import 'services/connectivity_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +28,14 @@ void main() async {
   // Инициализация Firebase
   try {
     await Firebase.initializeApp();
-    debugPrint('✅ Firebase initialized successfully');
+    
+    // Включаем offline поддержку
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    );
+    
+    debugPrint('✅ Firebase initialized successfully with offline support');
   } catch (e) {
     debugPrint('❌ Firebase initialization error: $e');
   }
@@ -47,6 +56,9 @@ void main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => AuthProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ConnectivityService(),
         ),
         StreamProvider<bool>(
           create: (_) => FirebaseService.authStateChanges.map((user) => user != null),

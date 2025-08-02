@@ -3,28 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
-import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/foundation.dart';
+
 
 import '../services/firebase_service.dart';
 import '../providers/auth_provider.dart';
 
-// OAuth конфигурация - замените на ваши реальные значения
-class OAuthConfig {
-  // VK OAuth
-  static const String vkAppId = String.fromEnvironment(
-    'VK_APP_ID',
-    defaultValue: '', // Установите ваш VK App ID
-  );
-  static const String vkRedirectUri = 'https://oauth.vk.com/blank.html';
 
-  // Яндекс OAuth
-  static const String yandexClientId = String.fromEnvironment(
-    'YANDEX_CLIENT_ID',
-    defaultValue: '', // Установите ваш Yandex Client ID
-  );
-  static const String yandexRedirectUri = 'https://oauth.yandex.ru/verification_code';
-}
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -125,81 +109,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _signInWithFacebook() async {
-    setState(() => _isLoading = true);
 
-    try {
-      final user = await FirebaseService.signInWithFacebook();
-      if (user != null && mounted) {
-        Provider.of<AuthProvider>(context, listen: false)
-            .setAuthenticated(true);
-      }
-    } catch (e) {
-      _showMessage(e.toString());
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  // VK авторизация через веб
-  Future<void> _signInWithVK() async {
-    if (OAuthConfig.vkAppId.isEmpty) {
-      _showMessage('VK авторизация не настроена');
-      if (kDebugMode) {
-        debugPrint('⚠️ VK App ID not configured. Set VK_APP_ID environment variable.');
-      }
-      return;
-    }
-
-    final url = Uri.parse('https://oauth.vk.com/authorize'
-        '?client_id=${OAuthConfig.vkAppId}'
-        '&display=mobile'
-        '&redirect_uri=${OAuthConfig.vkRedirectUri}'
-        '&scope=email'
-        '&response_type=token'
-        '&v=5.131');
-
-    try {
-      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        throw Exception('Could not launch VK OAuth');
-      }
-
-      _showMessage('Завершите авторизацию в браузере');
-
-      // После авторизации пользователь должен быть перенаправлен обратно в приложение
-      // где вы сможете обработать токен через deep links
-    } catch (e) {
-      _showMessage('Ошибка открытия VK: $e');
-    }
-  }
-
-  // Яндекс авторизация через веб
-  Future<void> _signInWithYandex() async {
-    if (OAuthConfig.yandexClientId.isEmpty) {
-      _showMessage('Яндекс авторизация не настроена');
-      if (kDebugMode) {
-        debugPrint('⚠️ Yandex Client ID not configured. Set YANDEX_CLIENT_ID environment variable.');
-      }
-      return;
-    }
-
-    final url = Uri.parse('https://oauth.yandex.ru/authorize'
-        '?response_type=token'
-        '&client_id=${OAuthConfig.yandexClientId}'
-        '&redirect_uri=${OAuthConfig.yandexRedirectUri}');
-
-    try {
-      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        throw Exception('Could not launch Yandex OAuth');
-      }
-
-      _showMessage('Завершите авторизацию в браузере');
-    } catch (e) {
-      _showMessage('Ошибка открытия Яндекс: $e');
-    }
-  }
 
   void _showMessage(String message) {
     if (!mounted) return;
@@ -525,40 +435,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
           delay: 0,
         ),
 
-        const SizedBox(height: 12),
 
-        // Facebook
-        _buildSocialButton(
-          onPressed: _signInWithFacebook,
-          color: const Color(0xFF1877F2),
-          icon: Icons.facebook,
-          text: 'Войти через Facebook',
-          delay: 100,
-        ),
-
-        const SizedBox(height: 12),
-
-        // VK
-        _buildSocialButton(
-          onPressed: _signInWithVK,
-          color: const Color(0xFF0077FF),
-          icon: Icons.public,
-          text: 'Войти через VK',
-          delay: 200,
-          isAvailable: OAuthConfig.vkAppId.isNotEmpty,
-        ),
-
-        const SizedBox(height: 12),
-
-        // Яндекс
-        _buildSocialButton(
-          onPressed: _signInWithYandex,
-          color: const Color(0xFFFC3F1D),
-          icon: Icons.language,
-          text: 'Войти через Яндекс',
-          delay: 300,
-          isAvailable: OAuthConfig.yandexClientId.isNotEmpty,
-        ),
       ],
     );
   }
@@ -616,7 +493,7 @@ class _AuthScreenState extends State<AuthScreen> with TickerProviderStateMixin {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              if (!isAvailable && kDebugMode) ...[
+              if (!isAvailable) ...[
                 const SizedBox(width: 8),
                 const Icon(
                   Icons.warning,

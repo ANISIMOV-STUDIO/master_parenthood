@@ -32,14 +32,13 @@ dependencies:
   cloud_firestore: ^4.17.5
   firebase_storage: ^11.6.0
   google_sign_in: ^6.1.5
-  flutter_facebook_auth: ^6.1.1
 
   # Utilities
   intl: ^0.20.2
-  url_launcher: ^6.2.5
   cached_network_image: ^3.3.1
   image_picker: ^1.0.7
   share_plus: ^7.2.1
+  connectivity_plus: ^5.0.2
 
   # Icons
   cupertino_icons: ^1.0.6

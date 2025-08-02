@@ -9,6 +9,7 @@ import '../services/ai_service.dart';
 import '../services/firebase_service.dart';
 import '../main.dart';
 import 'challenges_screen.dart';
+import '../widgets/connectivity_indicator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -158,6 +159,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           SafeArea(
             child: Column(
               children: [
+                // Индикатор сети
+                const ConnectivityIndicator(),
+                
                 // Заголовок
                 _buildHeader(context, themeProvider, localeProvider),
 
@@ -848,8 +852,42 @@ class _StoryGeneratorSheetState extends State<StoryGeneratorSheet> {
         _isGenerating = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: ${e.toString()}')),
+        final errorMessage = e.toString().replaceAll('Exception: ', '');
+        final isNetworkError = errorMessage.contains('internet') || 
+                               errorMessage.contains('Network') || 
+                               errorMessage.contains('timeout');
+        
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Row(
+                children: [
+                  Icon(
+                    isNetworkError ? Icons.wifi_off : Icons.error_outline,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text('Ошибка'),
+                ],
+              ),
+              content: Text(errorMessage),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Закрыть'),
+                ),
+                if (isNetworkError) 
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _generateStory();
+                    },
+                    child: const Text('Повторить'),
+                  ),
+              ],
+            );
+          },
         );
       }
     }

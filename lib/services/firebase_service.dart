@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+
 import 'dart:io';
 
 class FirebaseService {
@@ -121,43 +121,7 @@ class FirebaseService {
     }
   }
 
-  // Вход через Facebook
-  static Future<User?> signInWithFacebook() async {
-    try {
-      // Запускаем процесс входа через Facebook
-      final LoginResult loginResult = await FacebookAuth.instance.login();
 
-      if (loginResult.status != LoginStatus.success) {
-        return null; // Пользователь отменил или ошибка
-      }
-
-      // Создаем учетные данные
-      final OAuthCredential facebookAuthCredential =
-      FacebookAuthProvider.credential(loginResult.accessToken!.tokenString);
-
-      // Входим в Firebase
-      final UserCredential userCredential =
-      await _auth.signInWithCredential(facebookAuthCredential);
-
-      if (userCredential.user != null) {
-        // Проверяем, существует ли профиль
-        final doc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
-
-        if (!doc.exists) {
-          await _createUserProfile(userCredential.user!);
-        } else {
-          await _updateLastLogin(userCredential.user!.uid);
-        }
-      }
-
-      return userCredential.user;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error signing in with Facebook: $e');
-      }
-      throw Exception('Ошибка входа через Facebook');
-    }
-  }
 
   // Сброс пароля
   static Future<void> resetPassword(String email) async {
@@ -171,7 +135,7 @@ class FirebaseService {
   // Выход
   static Future<void> signOut() async {
     await _googleSignIn.signOut();
-    await FacebookAuth.instance.logOut();
+
     await _auth.signOut();
   }
 
@@ -364,15 +328,37 @@ class FirebaseService {
     if (!isAuthenticated) return null;
 
     try {
+      // Проверка существования файла
+      if (!await file.exists()) {
+        throw Exception('File does not exist');
+      }
+
+      // Проверка размера файла
+      final fileSizeInBytes = await file.length();
+      final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+      
+      if (fileSizeInMB > 5) {
+        throw Exception('File size exceeds 5MB limit');
+      }
+
       final ref = _storage
           .ref()
           .child('users')
           .child(currentUserId!)
           .child('children')
           .child(childId)
-          .child('photo.jpg');
+          .child('photo_${DateTime.now().millisecondsSinceEpoch}.jpg');
 
-      await ref.putFile(file);
+      // Загружаем с метаданными
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'uploadedBy': currentUserId!,
+          'childId': childId,
+        },
+      );
+
+      await ref.putFile(file, metadata);
       final url = await ref.getDownloadURL();
 
       // Обновляем профиль ребенка
@@ -381,14 +367,17 @@ class FirebaseService {
           .doc(currentUserId!)
           .collection('children')
           .doc(childId)
-          .update({'photoURL': url});
+          .update({
+            'photoURL': url,
+            'photoUpdatedAt': FieldValue.serverTimestamp(),
+          });
 
       return url;
     } catch (e) {
       if (kDebugMode) {
         print('Error uploading photo: $e');
       }
-      return null;
+      rethrow;
     }
   }
 
@@ -648,7 +637,19 @@ class ChildProfile {
   int get ageInMonths {
     final now = DateTime.now();
     final months = (now.year - birthDate.year) * 12 + now.month - birthDate.month;
+    
+    // Корректировка, если день рождения еще не наступил в текущем месяце
+    if (now.day < birthDate.day) {
+      return months - 1;
+    }
+    
     return months;
+  }
+
+  int get ageInDays {
+    final now = DateTime.now();
+    final difference = now.difference(birthDate);
+    return difference.inDays;
   }
 
   int get ageInYears {
@@ -656,14 +657,60 @@ class ChildProfile {
   }
 
   String get ageFormatted {
+    final days = ageInDays;
     final months = ageInMonths;
     final years = months ~/ 12;
     final remainingMonths = months % 12;
 
-    if (years > 0) {
-      return '$years г. $remainingMonths мес.';
-    } else {
-      return '$remainingMonths мес.';
+    // Для новорожденных (меньше недели)
+    if (days < 7) {
+      if (days == 0) {
+        return 'Сегодня родился';
+      } else if (days == 1) {
+        return '1 день';
+      } else if (days >= 2 && days <= 4) {
+        return '$days дня';
+      } else {
+        return '$days дней';
+      }
+    }
+    // Для детей младше месяца
+    else if (days < 30) {
+      final weeks = days ~/ 7;
+      if (weeks == 1) {
+        return '1 неделя';
+      } else {
+        return '$weeks недели';
+      }
+    }
+    // Для детей младше года
+    else if (years == 0) {
+      if (remainingMonths == 1) {
+        return '1 месяц';
+      } else if (remainingMonths >= 2 && remainingMonths <= 4) {
+        return '$remainingMonths месяца';
+      } else {
+        return '$remainingMonths месяцев';
+      }
+    }
+    // Для детей старше года
+    else {
+      String yearStr;
+      if (years == 1) {
+        yearStr = '1 год';
+      } else if (years >= 2 && years <= 4) {
+        yearStr = '$years года';
+      } else {
+        yearStr = '$years лет';
+      }
+      
+      if (remainingMonths == 0) {
+        return yearStr;
+      } else if (remainingMonths == 1) {
+        return '$yearStr 1 мес.';
+      } else {
+        return '$yearStr $remainingMonths мес.';
+      }
     }
   }
 }

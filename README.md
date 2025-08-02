@@ -68,8 +68,7 @@ flutter pub get
 #!/bin/bash
 flutter run \
   --dart-define=OPENAI_API_KEY="your_openai_key" \
-  --dart-define=VK_APP_ID="your_vk_app_id" \
-  --dart-define=YANDEX_CLIENT_ID="your_yandex_client_id"
+  
 ```
 
 Или используйте VS Code launch.json (см. [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md))
@@ -89,7 +88,7 @@ flutter run --dart-define=OPENAI_API_KEY=your_key
 lib/
 ├── main.dart                    # Точка входа, провайдеры, навигация
 ├── screens/                     # UI экраны
-│   ├── auth_screen.dart        # Авторизация (Email, Google, Facebook, VK, Яндекс)
+│   ├── auth_screen.dart        # Авторизация (Email, Google)
 │   ├── home_screen.dart        # Главный экран с функциями
 │   └── child_profile_screen.dart # Детальный профиль ребенка
 ├── services/                    # Бизнес-логика
@@ -101,11 +100,7 @@ lib/
 └── l10n/                       # Локализация
     └── app_localizations.dart  # Переводы для 5 языков
 
-functions/                       # Firebase Functions (VK, Яндекс OAuth)
-├── src/
-│   └── index.ts               # Cloud Functions для кастомной авторизации
-├── package.json               # Зависимости функций
-└── tsconfig.json             # TypeScript конфигурация
+
 ```
 
 ## 🔧 Детальная настройка
@@ -115,9 +110,6 @@ functions/                       # Firebase Functions (VK, Яндекс OAuth)
 Приложение поддерживает несколько способов входа:
 - **Email/Password** - базовая регистрация
 - **Google Sign-In** - через Google аккаунт
-- **Facebook Login** - через Facebook
-- **VK** - через VKontakte (требует Firebase Functions)
-- **Яндекс** - через Яндекс ID (требует Firebase Functions)
 
 ### AI функции
 

@@ -49,35 +49,62 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
   Future<void> _pickAndUploadPhoto() async {
     if (_activeChild == null) return;
 
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85, // Сжатие изображения для уменьшения размера
+    );
     if (image == null) return;
+
+    // Проверка размера файла
+    final file = File(image.path);
+    final fileSizeInBytes = await file.length();
+    final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
+    
+    if (fileSizeInMB > 5) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Файл слишком большой'),
+            content: Text('Размер фото не должен превышать 5 МБ.\nТекущий размер: ${fileSizeInMB.toStringAsFixed(2)} МБ'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Понятно'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
 
     setState(() => _isUploadingPhoto = true);
 
     try {
       final photoUrl = await FirebaseService.uploadChildPhoto(
-        file: File(image.path),
+        file: file,
         childId: _activeChild!.id,
       );
 
-      // !!! Здесь вы используете context после await.
-      // !!! Добавьте проверку mounted перед использованием context.
       if (mounted) {
         if (photoUrl != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Фото обновлено')),
           );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Не удалось загрузить фото')),
+          );
         }
       }
     } catch (e) {
-      // !!! И здесь вы используете context. Добавьте проверку mounted.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки фото: $e')),
+          SnackBar(content: Text('Ошибка: ${e.toString()}')),
         );
       }
     } finally {
-      // В блоке finally вы уже правильно проверяете mounted, это хорошо.
       if (mounted) {
         setState(() => _isUploadingPhoto = false);
       }

@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'cache_service.dart';
 
 class AIService {
   // Для продакшена используйте Firebase Remote Config или переменные окружения
@@ -22,6 +23,18 @@ class AIService {
     required String theme,
     required String language,
   }) async {
+    // Проверяем кэш
+    final cachedStory = await CacheService.getCachedStory(
+      childName: childName,
+      theme: theme,
+      language: language,
+    );
+    
+    if (cachedStory != null) {
+      debugPrint('📦 Story loaded from cache');
+      return cachedStory;
+    }
+    
     if (!hasApiKey) {
       debugPrint('⚠️ OpenAI API key not configured');
       return _getFallbackStory(childName, theme, language);
@@ -54,17 +67,45 @@ class AIService {
           'temperature': 0.8,
           'max_tokens': 200,
         }),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check your internet connection.');
+        },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['choices'][0]['message']['content'];
+        final story = data['choices'][0]['message']['content'];
+        
+        // Сохраняем в кэш
+        await CacheService.cacheStory(
+          childName: childName,
+          theme: theme,
+          story: story,
+          language: language,
+        );
+        
+        return story;
+      } else if (response.statusCode == 401) {
+        throw Exception('Invalid API key');
+      } else if (response.statusCode == 429) {
+        throw Exception('Rate limit exceeded. Please try again later.');
+      } else if (response.statusCode >= 500) {
+        throw Exception('Server error. Please try again later.');
       } else {
-        throw Exception('Failed to generate story: ${response.body}');
+        throw Exception('Failed to generate story: ${response.statusCode}');
       }
+    } on http.ClientException catch (e) {
+      debugPrint('Network error: $e');
+      throw Exception('Network error. Please check your internet connection.');
     } catch (e) {
       debugPrint('Error generating story: $e');
-      return _getFallbackStory(childName, theme, language);
+      if (e.toString().contains('Failed host lookup') || 
+          e.toString().contains('SocketException')) {
+        throw Exception('No internet connection. Please check your connection and try again.');
+      }
+      rethrow;
     }
   }
 
@@ -74,6 +115,18 @@ class AIService {
     required String childAge,
     required String language,
   }) async {
+    // Проверяем кэш
+    final cachedAdvice = await CacheService.getCachedAdvice(
+      topic: topic,
+      childAge: childAge,
+      language: language,
+    );
+    
+    if (cachedAdvice != null) {
+      debugPrint('📦 Advice loaded from cache');
+      return cachedAdvice;
+    }
+    
     if (!hasApiKey) {
       return _getFallbackAdvice(topic, childAge, language);
     }
@@ -104,17 +157,45 @@ class AIService {
           'temperature': 0.7,
           'max_tokens': 250,
         }),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check your internet connection.');
+        },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['choices'][0]['message']['content'];
+        final advice = data['choices'][0]['message']['content'];
+        
+        // Сохраняем в кэш
+        await CacheService.cacheAdvice(
+          topic: topic,
+          childAge: childAge,
+          advice: advice,
+          language: language,
+        );
+        
+        return advice;
+      } else if (response.statusCode == 401) {
+        throw Exception('Invalid API key');
+      } else if (response.statusCode == 429) {
+        throw Exception('Rate limit exceeded. Please try again later.');
+      } else if (response.statusCode >= 500) {
+        throw Exception('Server error. Please try again later.');
       } else {
-        throw Exception('Failed to get advice');
+        throw Exception('Failed to get advice: ${response.statusCode}');
       }
+    } on http.ClientException catch (e) {
+      debugPrint('Network error: $e');
+      throw Exception('Network error. Please check your internet connection.');
     } catch (e) {
       debugPrint('Error getting parenting advice: $e');
-      return _getFallbackAdvice(topic, childAge, language);
+      if (e.toString().contains('Failed host lookup') || 
+          e.toString().contains('SocketException')) {
+        throw Exception('No internet connection. Please check your connection and try again.');
+      }
+      rethrow;
     }
   }
 
@@ -155,17 +236,35 @@ class AIService {
           'temperature': 0.7,
           'max_tokens': 300,
         }),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check your internet connection.');
+        },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final content = data['choices'][0]['message']['content'];
         return jsonDecode(content);
+      } else if (response.statusCode == 401) {
+        throw Exception('Invalid API key');
+      } else if (response.statusCode == 429) {
+        throw Exception('Rate limit exceeded. Please try again later.');
+      } else if (response.statusCode >= 500) {
+        throw Exception('Server error. Please try again later.');
       } else {
-        throw Exception('Failed to get analysis');
+        throw Exception('Failed to get analysis: ${response.statusCode}');
       }
+    } on http.ClientException catch (e) {
+      debugPrint('Network error: $e');
+      return _getFallbackAnalysis(language);
     } catch (e) {
       debugPrint('Error getting development analysis: $e');
+      if (e.toString().contains('Failed host lookup') || 
+          e.toString().contains('SocketException')) {
+        return _getFallbackAnalysis(language);
+      }
       return _getFallbackAnalysis(language);
     }
   }
@@ -207,16 +306,34 @@ class AIService {
           'temperature': 0.8,
           'max_tokens': 150,
         }),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Connection timeout. Please check your internet connection.');
+        },
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['choices'][0]['message']['content'].trim();
+      } else if (response.statusCode == 401) {
+        throw Exception('Invalid API key');
+      } else if (response.statusCode == 429) {
+        throw Exception('Rate limit exceeded. Please try again later.');
+      } else if (response.statusCode >= 500) {
+        throw Exception('Server error. Please try again later.');
       } else {
-        throw Exception('Failed to generate activity');
+        throw Exception('Failed to generate activity: ${response.statusCode}');
       }
+    } on http.ClientException catch (e) {
+      debugPrint('Network error: $e');
+      return _getFallbackTopicActivity(topic, ageGroup, language);
     } catch (e) {
       debugPrint('Error generating topic activity: $e');
+      if (e.toString().contains('Failed host lookup') || 
+          e.toString().contains('SocketException')) {
+        return _getFallbackTopicActivity(topic, ageGroup, language);
+      }
       return _getFallbackTopicActivity(topic, ageGroup, language);
     }
   }
