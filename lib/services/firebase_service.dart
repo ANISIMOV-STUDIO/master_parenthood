@@ -713,6 +713,22 @@ class ChildProfile {
       }
     }
   }
+  
+  // Краткий формат возраста для UI
+  String get ageFormattedShort {
+    final months = ageInMonths;
+    final years = months ~/ 12;
+    
+    if (years == 0) {
+      return '$months мес.';
+    } else if (years == 1) {
+      return '1 год';
+    } else if (years >= 2 && years <= 4) {
+      return '$years года';
+    } else {
+      return '$years лет';
+    }
+  }
 }
 
 // Достижение
