@@ -5,6 +5,61 @@ import '../l10n/app_localizations.dart';
 import '../services/firebase_service.dart';
 import '../services/challenges_service.dart';
 
+
+// Глобальная функция для получения цвета категории
+Color getCategoryColor(String category) {
+  switch (category) {
+    case 'physical':
+      return Colors.blue;
+    case 'creative':
+      return Colors.purple;
+    case 'social':
+      return Colors.green;
+    case 'cognitive':
+      return Colors.orange;
+    case 'emotional':
+      return Colors.pink;
+    default:
+      return Colors.grey;
+  }
+}
+
+// Глобальная функция для получения иконки категории
+IconData getCategoryIcon(String category) {
+  switch (category) {
+    case 'physical':
+      return Icons.directions_run;
+    case 'creative':
+      return Icons.palette;
+    case 'social':
+      return Icons.people;
+    case 'cognitive':
+      return Icons.psychology;
+    case 'emotional':
+      return Icons.favorite;
+    default:
+      return Icons.stars;
+  }
+}
+
+// Глобальная функция для получения названия категории
+String getCategoryName(String category) {
+  switch (category) {
+    case 'physical':
+      return 'Физическое';
+    case 'creative':
+      return 'Творческое';
+    case 'social':
+      return 'Социальное';
+    case 'cognitive':
+      return 'Познавательное';
+    case 'emotional':
+      return 'Эмоциональное';
+    default:
+      return 'Общее';
+  }
+}
+
 class ChallengesScreen extends StatefulWidget {
   const ChallengesScreen({super.key});
 
@@ -332,10 +387,10 @@ class _CompletedChallengesTab extends StatelessWidget {
                     ),
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: _getCategoryColor(challenge.category).withValues(alpha: 0.2),
+                        backgroundColor: getCategoryColor(challenge.category).withValues(alpha: 0.2),
                         child: Icon(
-                          _getCategoryIcon(challenge.category),
-                          color: _getCategoryColor(challenge.category),
+                          getCategoryIcon(challenge.category),
+                          color: getCategoryColor(challenge.category),
                         ),
                       ),
                       title: Text(challenge.title),
@@ -960,12 +1015,12 @@ class _ChallengeDetailsSheet extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: _getCategoryColor(challenge.category).withValues(alpha: 0.2),
+                  color: getCategoryColor(challenge.category).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  _getCategoryIcon(challenge.category),
-                  color: _getCategoryColor(challenge.category),
+                  getCategoryIcon(challenge.category),
+                  color: getCategoryColor(challenge.category),
                   size: 32,
                 ),
               ),
@@ -983,10 +1038,10 @@ class _ChallengeDetailsSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _getCategoryName(challenge.category),
+                      getCategoryName(challenge.category),
                       style: TextStyle(
                         fontSize: 14,
-                        color: _getCategoryColor(challenge.category),
+                        color: getCategoryColor(challenge.category),
                       ),
                     ),
                   ],
@@ -1054,73 +1109,5 @@ class _ChallengeDetailsSheet extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'physical':
-        return Colors.blue;
-      case 'creative':
-        return Colors.purple;
-      case 'social':
-        return Colors.green;
-      case 'cognitive':
-        return Colors.orange;
-      case 'emotional':
-        return Colors.pink;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'physical':
-        return Icons.directions_run;
-      case 'creative':
-        return Icons.palette;
-      case 'social':
-        return Icons.people;
-      case 'cognitive':
-        return Icons.psychology;
-      case 'emotional':
-        return Icons.favorite;
-      default:
-        return Icons.stars;
-    }
-  }
-
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'physical':
-        return 'Физическое';
-      case 'creative':
-        return 'Творческое';
-      case 'social':
-        return 'Социальное';
-      case 'cognitive':
-        return 'Познавательное';
-      case 'emotional':
-        return 'Эмоциональное';
-      default:
-        return 'Общее';
-    }
-  }
-}
-
-Color _getCategoryColor(String category) {
-  switch (category) {
-    case 'physical':
-      return Colors.blue;
-    case 'creative':
-      return Colors.purple;
-    case 'social':
-      return Colors.green;
-    case 'cognitive':
-      return Colors.orange;
-    case 'emotional':
-      return Colors.pink;
-    default:
-      return Colors.grey;
   }
 }

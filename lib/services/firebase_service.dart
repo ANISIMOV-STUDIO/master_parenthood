@@ -3,14 +3,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'dart:io';
-
-import 'package:flutter/material.dart';
 
 class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseStorage _storage = FirebaseStorage.instance;
+  static final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // ===== АВТОРИЗАЦИЯ =====
 
@@ -20,6 +21,19 @@ class FirebaseService {
 
   // Stream состояния авторизации
   static Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Регистрация через email (алиас для совместимости)
+  static Future<User?> registerWithEmail({
+    required String email,
+    required String password,
+    required String parentName,
+  }) async {
+    return signUpWithEmail(
+      email: email,
+      password: password,
+      displayName: parentName,
+    );
+  }
 
   // Регистрация через email
   static Future<User?> signUpWithEmail({
@@ -65,8 +79,99 @@ class FirebaseService {
     }
   }
 
+  // Вход через Google
+  static Future<User?> signInWithGoogle() async {
+    try {
+      // Запускаем процесс входа через Google
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        return null; // Пользователь отменил вход
+      }
+
+      // Получаем детали авторизации
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Создаем учетные данные
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Входим в Firebase
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+
+      if (userCredential.user != null) {
+        // Проверяем, существует ли профиль
+        final doc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+
+        if (!doc.exists) {
+          await _createUserProfile(userCredential.user!);
+        } else {
+          await _updateLastLogin(userCredential.user!.uid);
+        }
+      }
+
+      return userCredential.user;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error signing in with Google: $e');
+      }
+      throw Exception('Ошибка входа через Google');
+    }
+  }
+
+  // Вход через Facebook
+  static Future<User?> signInWithFacebook() async {
+    try {
+      // Запускаем процесс входа через Facebook
+      final LoginResult loginResult = await FacebookAuth.instance.login();
+
+      if (loginResult.status != LoginStatus.success) {
+        return null; // Пользователь отменил или ошибка
+      }
+
+      // Создаем учетные данные
+      final OAuthCredential facebookAuthCredential =
+      FacebookAuthProvider.credential(loginResult.accessToken!.tokenString);
+
+      // Входим в Firebase
+      final UserCredential userCredential =
+      await _auth.signInWithCredential(facebookAuthCredential);
+
+      if (userCredential.user != null) {
+        // Проверяем, существует ли профиль
+        final doc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
+
+        if (!doc.exists) {
+          await _createUserProfile(userCredential.user!);
+        } else {
+          await _updateLastLogin(userCredential.user!.uid);
+        }
+      }
+
+      return userCredential.user;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error signing in with Facebook: $e');
+      }
+      throw Exception('Ошибка входа через Facebook');
+    }
+  }
+
+  // Сброс пароля
+  static Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
   // Выход
   static Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    await FacebookAuth.instance.logOut();
     await _auth.signOut();
   }
 
@@ -160,6 +265,23 @@ class FirebaseService {
     await setActiveChild(childRef.id);
 
     return childRef.id;
+  }
+
+  // Обновление профиля ребенка
+  static Future<void> updateChild({
+    required String childId,
+    required Map<String, dynamic> data,
+  }) async {
+    if (!isAuthenticated) return;
+
+    data['updatedAt'] = FieldValue.serverTimestamp();
+
+    await _firestore
+        .collection('users')
+        .doc(currentUserId!)
+        .collection('children')
+        .doc(childId)
+        .update(data);
   }
 
   // Установка активного ребенка
@@ -286,32 +408,13 @@ class FirebaseService {
       final currentLevel = userDoc.data()?['level'] ?? 1;
 
       final newXP = currentXP + amount;
-      final newLevel = _calculateLevel(newXP);
+      final newLevel = (newXP ~/ 1000) + 1;
 
       transaction.update(userRef, {
         'xp': newXP,
         'level': newLevel,
       });
-
-      // Если новый уровень, создаем уведомление
-      if (newLevel > currentLevel) {
-        await _createLevelUpNotification(newLevel);
-      }
     });
-  }
-
-  // Расчет уровня по XP
-  static int _calculateLevel(int xp) {
-    // Простая формула: каждый уровень требует 1000 XP
-    return (xp / 1000).floor() + 1;
-  }
-
-  // Создание уведомления о новом уровне
-  static Future<void> _createLevelUpNotification(int level) async {
-    // TODO: Реализовать push-уведомления
-    if (kDebugMode) {
-      print('Level up! New level: $level');
-    }
   }
 
   // Stream достижений
@@ -326,31 +429,6 @@ class FirebaseService {
         .map((snapshot) => snapshot.docs
         .map((doc) => Achievement.fromFirestore(doc.data(), doc.id))
         .toList());
-  }
-
-  // Обновление достижения
-  static Future<void> updateAchievement({
-    required String achievementId,
-    required bool unlocked,
-    int? progress,
-  }) async {
-    if (!isAuthenticated) return;
-
-    await _firestore
-        .collection('users')
-        .doc(currentUserId!)
-        .collection('achievements')
-        .doc(achievementId)
-        .set({
-      'unlocked': unlocked,
-      'progress': progress ?? 100,
-      'unlockedAt': unlocked ? FieldValue.serverTimestamp() : null,
-    }, SetOptions(merge: true));
-
-    // Добавляем XP за разблокировку достижения
-    if (unlocked) {
-      await addXP(100);
-    }
   }
 
   // ===== СКАЗКИ =====
@@ -544,6 +622,29 @@ class ChildProfile {
     required this.updatedAt,
   });
 
+  factory ChildProfile.fromFirestore(Map<String, dynamic> data, String id) {
+    return ChildProfile(
+      id: id,
+      name: data['name'] ?? '',
+      birthDate: (data['birthDate'] as Timestamp).toDate(),
+      gender: data['gender'] ?? 'male',
+      height: (data['height'] ?? 0).toDouble(),
+      weight: (data['weight'] ?? 0).toDouble(),
+      photoURL: data['photoURL'],
+      petName: data['petName'] ?? 'Единорог',
+      petType: data['petType'] ?? '🦄',
+      petStats: Map<String, int>.from(data['petStats'] ?? {
+        'happiness': 50,
+        'energy': 50,
+        'knowledge': 50,
+      }),
+      milestones: data['milestones'] ?? {},
+      vocabularySize: data['vocabularySize'] ?? 0,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
   int get ageInMonths {
     final now = DateTime.now();
     final months = (now.year - birthDate.year) * 12 + now.month - birthDate.month;
@@ -565,75 +666,52 @@ class ChildProfile {
       return '$remainingMonths мес.';
     }
   }
+}
 
-  String get ageFormattedShort {
-    final years = ageInYears;
-    if (years >= 1) {
-      return '$years ${_getYearWord(years)}';
-    } else {
-      return '$ageInMonths ${_getMonthWord(ageInMonths)}';
-    }
-  }
+// Достижение
+class Achievement {
+  final String id;
+  final String title;
+  final String description;
+  final String icon;
+  final bool unlocked;
+  final DateTime? unlockedAt;
+  final int progress;
+  final int maxProgress;
 
-  String _getYearWord(int years) {
-    if (years % 10 == 1 && years % 100 != 11) return 'год';
-    if ([2, 3, 4].contains(years % 10) && ![12, 13, 14].contains(years % 100)) return 'года';
-    return 'лет';
-  }
+  Achievement({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.icon,
+    required this.unlocked,
+    this.unlockedAt,
+    required this.progress,
+    required this.maxProgress,
+  });
 
-  String _getMonthWord(int months) {
-    if (months % 10 == 1 && months % 100 != 11) return 'месяц';
-    if ([2, 3, 4].contains(months % 10) && ![12, 13, 14].contains(months % 100)) return 'месяца';
-    return 'месяцев';
-  }
-
-  factory ChildProfile.fromFirestore(Map<String, dynamic> data, String id) {
-    return ChildProfile(
+  factory Achievement.fromFirestore(Map<String, dynamic> data, String id) {
+    return Achievement(
       id: id,
-      name: data['name'] ?? '',
-      birthDate: (data['birthDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      gender: data['gender'] ?? 'male',
-      height: (data['height'] ?? 0).toDouble(),
-      weight: (data['weight'] ?? 0).toDouble(),
-      photoURL: data['photoURL'],
-      petName: data['petName'] ?? 'Питомец',
-      petType: data['petType'] ?? '🦄',
-      petStats: Map<String, int>.from(data['petStats'] ?? {
-        'happiness': 50,
-        'energy': 50,
-        'knowledge': 50,
-      }),
-      milestones: data['milestones'] ?? {},
-      vocabularySize: data['vocabularySize'] ?? 0,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      icon: data['icon'] ?? '🏆',
+      unlocked: data['unlocked'] ?? false,
+      unlockedAt: data['unlockedAt'] != null
+          ? (data['unlockedAt'] as Timestamp).toDate()
+          : null,
+      progress: data['progress'] ?? 0,
+      maxProgress: data['maxProgress'] ?? 1,
     );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'name': name,
-      'birthDate': Timestamp.fromDate(birthDate),
-      'gender': gender,
-      'height': height,
-      'weight': weight,
-      'photoURL': photoURL,
-      'petName': petName,
-      'petType': petType,
-      'petStats': petStats,
-      'milestones': milestones,
-      'vocabularySize': vocabularySize,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
   }
 }
 
-// Данные сказки
+// История
 class StoryData {
   final String id;
   final String childId;
-  final String story;
   final String theme;
+  final String story;
   final String? imageUrl;
   final bool isFavorite;
   final DateTime createdAt;
@@ -641,8 +719,8 @@ class StoryData {
   StoryData({
     required this.id,
     required this.childId,
-    required this.story,
     required this.theme,
+    required this.story,
     this.imageUrl,
     required this.isFavorite,
     required this.createdAt,
@@ -653,101 +731,11 @@ class StoryData {
     return StoryData(
       id: doc.id,
       childId: data['childId'] ?? '',
-      story: data['story'] ?? '',
       theme: data['theme'] ?? '',
+      story: data['story'] ?? '',
       imageUrl: data['imageUrl'],
       isFavorite: data['isFavorite'] ?? false,
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }
-}
-
-// Достижение
-class Achievement {
-  final String id;
-  final String title;
-  final String description;
-  final IconData icon;
-  final Color color;
-  final int xpReward;
-  final bool unlocked;
-  final double progress;
-  final DateTime? unlockedAt;
-
-  Achievement({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.icon,
-    required this.color,
-    required this.xpReward,
-    required this.unlocked,
-    required this.progress,
-    this.unlockedAt,
-  });
-
-  factory Achievement.fromFirestore(Map<String, dynamic> data, String id) {
-    // Маппинг ID достижений на иконки и цвета
-    final achievementConfig = _achievementConfigs[id] ?? _defaultAchievementConfig;
-
-    return Achievement(
-      id: id,
-      title: achievementConfig['title'] ?? 'Достижение',
-      description: achievementConfig['description'] ?? '',
-      icon: achievementConfig['icon'] ?? Icons.stars,
-      color: achievementConfig['color'] ?? Colors.purple,
-      xpReward: achievementConfig['xpReward'] ?? 100,
-      unlocked: data['unlocked'] ?? false,
-      progress: (data['progress'] ?? 0).toDouble(),
-      unlockedAt: data['unlockedAt'] != null
-          ? (data['unlockedAt'] as Timestamp).toDate()
-          : null,
-    );
-  }
-
-  static final Map<String, Map<String, dynamic>> _achievementConfigs = {
-    'first_story': {
-      'title': 'Первая сказка',
-      'description': 'Создайте первую сказку для ребенка',
-      'icon': Icons.auto_stories,
-      'color': Colors.blue,
-      'xpReward': 100,
-    },
-    'story_master': {
-      'title': 'Мастер сказок',
-      'description': 'Создайте 10 сказок',
-      'icon': Icons.menu_book,
-      'color': Colors.purple,
-      'xpReward': 500,
-    },
-    'daily_reader': {
-      'title': 'Ежедневное чтение',
-      'description': 'Читайте сказки 7 дней подряд',
-      'icon': Icons.today,
-      'color': Colors.green,
-      'xpReward': 300,
-    },
-    'challenge_champion': {
-      'title': 'Чемпион челленджей',
-      'description': 'Выполните 20 челленджей',
-      'icon': Icons.emoji_events,
-      'color': Colors.orange,
-      'xpReward': 400,
-    },
-    'pet_lover': {
-      'title': 'Любитель питомцев',
-      'description': 'Максимально прокачайте питомца',
-      'icon': Icons.pets,
-      'color': Colors.pink,
-      'xpReward': 600,
-    },
-  };
-
-  static final Map<String, dynamic> _defaultAchievementConfig = {
-    'title': 'Достижение',
-    'description': 'Выполните задание',
-    'icon': Icons.stars,
-    'color': Colors.purple,
-    'xpReward': 100,
-  };
 }
