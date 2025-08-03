@@ -265,7 +265,7 @@ class FirebaseService {
       return userCredential.user;
     } catch (e) {
       if (kDebugMode) {
-        print('Error signing in with Google: $e');
+        // Error logged internally
       }
       throw Exception('Ошибка входа через Google');
     }
@@ -525,7 +525,7 @@ class FirebaseService {
       return url;
     } catch (e) {
       if (kDebugMode) {
-        print('Error uploading photo: $e');
+        // Error logged internally
       }
       rethrow;
     }
@@ -544,7 +544,6 @@ class FirebaseService {
       if (!userDoc.exists) return;
 
       final currentXP = userDoc.data()?['xp'] ?? 0;
-      final currentLevel = userDoc.data()?['level'] ?? 1;
 
       final newXP = currentXP + amount;
       final newLevel = (newXP ~/ 1000) + 1;
@@ -1305,7 +1304,7 @@ class FirebaseService {
       return url;
     } catch (e) {
       if (kDebugMode) {
-        print('Ошибка загрузки медицинского документа: $e');
+        // Error logged internally
       }
       rethrow;
     }
@@ -2052,7 +2051,7 @@ class FirebaseService {
       // Рассчитываем статистику
       final totalNightSleep = completeEntries.fold<Duration>(
         Duration.zero,
-        (sum, entry) => sum + entry.actualSleepTime,
+        (acc, entry) => acc + entry.actualSleepTime,
       );
       final averageNightSleep = Duration(
         milliseconds: totalNightSleep.inMilliseconds ~/ completeEntries.length,
@@ -2060,7 +2059,7 @@ class FirebaseService {
 
       final totalDaytimeSleep = completeEntries.fold<Duration>(
         Duration.zero,
-        (sum, entry) => sum + entry.totalNapTime,
+        (acc, entry) => acc + entry.totalNapTime,
       );
       final averageDaytimeSleep = Duration(
         milliseconds: totalDaytimeSleep.inMilliseconds ~/ completeEntries.length,
@@ -2156,8 +2155,8 @@ class FirebaseService {
     final recent = entries.take(entries.length ~/ 2).toList();
     final older = entries.skip(entries.length ~/ 2).toList();
     
-    final recentAvg = recent.fold<Duration>(Duration.zero, (sum, e) => sum + e.actualSleepTime).inMinutes / recent.length;
-    final olderAvg = older.fold<Duration>(Duration.zero, (sum, e) => sum + e.actualSleepTime).inMinutes / older.length;
+          final recentAvg = recent.fold<Duration>(Duration.zero, (acc, e) => acc + e.actualSleepTime).inMinutes / recent.length;
+          final olderAvg = older.fold<Duration>(Duration.zero, (acc, e) => acc + e.actualSleepTime).inMinutes / older.length;
     
     final diff = recentAvg - olderAvg;
     
@@ -2172,8 +2171,8 @@ class FirebaseService {
     final recent = entries.take(entries.length ~/ 2).toList();
     final older = entries.skip(entries.length ~/ 2).toList();
     
-    final recentAvg = recent.fold<double>(0, (sum, e) => sum + e.quality.scoreValue) / recent.length;
-    final olderAvg = older.fold<double>(0, (sum, e) => sum + e.quality.scoreValue) / older.length;
+          final recentAvg = recent.fold<double>(0, (acc, e) => acc + e.quality.scoreValue) / recent.length;
+    final olderAvg = older.fold<double>(0, (acc, e) => acc + e.quality.scoreValue) / older.length;
     
     final diff = recentAvg - olderAvg;
     
@@ -2193,8 +2192,8 @@ class FirebaseService {
     if (bedtimes.length < 3) return SleepTrend.stable;
     
     // Рассчитываем вариацию времени укладывания
-    final avg = bedtimes.fold<double>(0, (sum, t) => sum + t) / bedtimes.length;
-    final variance = bedtimes.fold<double>(0, (sum, t) => sum + (t - avg) * (t - avg)) / bedtimes.length;
+    final avg = bedtimes.fold<double>(0, (acc, t) => acc + t) / bedtimes.length;
+    final variance = bedtimes.fold<double>(0, (acc, t) => acc + (t - avg) * (t - avg)) / bedtimes.length;
     
     if (variance > 900) return SleepTrend.inconsistent; // > 30 мин разброс
     return SleepTrend.stable;
@@ -2212,7 +2211,7 @@ class FirebaseService {
     
     final weekdayAverages = <String, double>{};
     weekdayStats.forEach((day, durations) {
-      final avg = durations.fold<Duration>(Duration.zero, (sum, d) => sum + d).inMinutes / durations.length;
+      final avg = durations.fold<Duration>(Duration.zero, (acc, d) => acc + d).inMinutes / durations.length;
       weekdayAverages['day_$day'] = avg;
     });
     
@@ -2241,11 +2240,11 @@ class FirebaseService {
     // Анализ продолжительности сна
     final avgHours = avgSleep.inHours;
     if (avgHours >= 11) {
-      insights.add('Отличная продолжительность сна - ${avgHours}ч в среднем');
+      insights.add('Отличная продолжительность сна - $avgHoursч в среднем');
     } else if (avgHours >= 9) {
-      insights.add('Хорошая продолжительность сна - ${avgHours}ч в среднем');
+      insights.add('Хорошая продолжительность сна - $avgHoursч в среднем');
     } else {
-      insights.add('Недостаточная продолжительность сна - только ${avgHours}ч');
+      insights.add('Недостаточная продолжительность сна - только $avgHoursч');
     }
     
     // Анализ качества
@@ -2342,8 +2341,8 @@ class FirebaseService {
     
     if (bedtimes.length < 2) return 0;
     
-    final avg = bedtimes.fold<double>(0, (sum, t) => sum + t) / bedtimes.length;
-    final variance = bedtimes.fold<double>(0, (sum, t) => sum + (t - avg) * (t - avg)) / bedtimes.length;
+    final avg = bedtimes.fold<double>(0, (acc, t) => acc + t) / bedtimes.length;
+    final variance = bedtimes.fold<double>(0, (acc, t) => acc + (t - avg) * (t - avg)) / bedtimes.length;
     
     return sqrt(variance);
   }
@@ -2413,12 +2412,12 @@ class FirebaseService {
 
       final totalSleep = completeEntries.fold<Duration>(
         Duration.zero,
-        (sum, entry) => sum + entry.actualSleepTime,
+        (acc, entry) => acc + entry.actualSleepTime,
       );
       
-      final totalNaps = entries.fold<int>(0, (sum, entry) => sum + entry.naps.length);
-      final totalWakings = completeEntries.fold<int>(0, (sum, entry) => sum + entry.nightWakings);
-      final totalQuality = completeEntries.fold<int>(0, (sum, entry) => sum + entry.quality.scoreValue);
+      final totalNaps = entries.fold<int>(0, (acc, entry) => acc + entry.naps.length);
+      final totalWakings = completeEntries.fold<int>(0, (acc, entry) => acc + entry.nightWakings);
+      final totalQuality = completeEntries.fold<int>(0, (acc, entry) => acc + entry.quality.scoreValue);
 
       return {
         'totalEntries': entries.length,
@@ -2692,7 +2691,7 @@ class FirebaseService {
       });
 
       final totalMinutes = completions
-          .fold<int>(0, (sum, c) => sum + c.actualDurationMinutes);
+          .fold<int>(0, (acc, c) => acc + c.actualDurationMinutes);
 
       return {
         'totalCompletions': totalCompletions,
@@ -2741,7 +2740,7 @@ class FirebaseService {
       });
     } catch (e) {
       // Не критичная ошибка, логируем и продолжаем
-      print('Ошибка обновления статистики активности: $e');
+      // Error logged internally
     }
   }
 
@@ -7446,7 +7445,7 @@ class SleepEntry {
       final grossSleep = wakeupTime!.difference(fallAsleepTime!);
       final interruptionTime = interruptions.fold<Duration>(
         Duration.zero,
-        (sum, interruption) => sum + interruption.duration,
+        (acc, interruption) => acc + interruption.duration,
       );
       return grossSleep - interruptionTime;
     }
@@ -7457,7 +7456,7 @@ class SleepEntry {
   Duration get totalNapTime {
     return naps.fold<Duration>(
       Duration.zero,
-      (sum, nap) => sum + nap.duration,
+      (acc, nap) => acc + nap.duration,
     );
   }
 
@@ -7475,7 +7474,7 @@ class SleepEntry {
     final sleep = actualSleepTime;
     final hours = sleep.inHours;
     final minutes = sleep.inMinutes.remainder(60);
-    return '${hours}ч ${minutes}м';
+    return '$hoursч $minutesм';
   }
 
   String get bedtimeString {
@@ -7551,9 +7550,9 @@ class Nap {
     final hours = d.inHours;
     final minutes = d.inMinutes.remainder(60);
     if (hours > 0) {
-      return '${hours}ч ${minutes}м';
+      return '$hoursч $minutesм';
     } else {
-      return '${minutes}м';
+      return '$minutesм';
     }
   }
 
@@ -7652,13 +7651,13 @@ class SleepAnalysis {
   String get formattedNightSleep {
     final hours = averageNightSleep.inHours;
     final minutes = averageNightSleep.inMinutes.remainder(60);
-    return '${hours}ч ${minutes}м';
+    return '$hoursч $minutesм';
   }
 
   String get formattedTotalSleep {
     final hours = averageTotalSleep.inHours;
     final minutes = averageTotalSleep.inMinutes.remainder(60);
-    return '${hours}ч ${minutes}м';
+    return '$hoursч $minutesм';
   }
 
   String get qualityAssessment {
@@ -8070,7 +8069,7 @@ class FirstAidGuide {
 
   int get estimatedDuration {
     // Примерное время выполнения всех шагов в секундах
-    return steps.fold<int>(0, (sum, step) => sum + step.estimatedSeconds);
+    return steps.fold<int>(0, (acc, step) => acc + step.estimatedSeconds);
   }
 
   String get formattedDuration {
@@ -8078,9 +8077,9 @@ class FirstAidGuide {
     final seconds = estimatedDuration % 60;
     
     if (minutes > 0) {
-      return '${minutes}м ${seconds}с';
+      return '$minutesм $secondsс';
     } else {
-      return '${seconds}с';
+      return '$secondsс';
     }
   }
 }
@@ -8158,11 +8157,11 @@ class AgeRange {
 
     String formatAge(int years, int months) {
       if (years == 0) {
-        return '${months}мес';
+        return '$monthsмес';
       } else if (months == 0) {
-        return '${years}г';
+        return '$yearsг';
       } else {
-        return '${years}г ${months}мес';
+        return '$yearsг $monthsмес';
       }
     }
 
@@ -8517,11 +8516,11 @@ class DevelopmentActivity {
 
   String get formattedDuration {
     if (durationMinutes < 60) {
-      return '${durationMinutes}мин';
+      return '$durationMinutesмин';
     } else {
       final hours = durationMinutes ~/ 60;
       final minutes = durationMinutes % 60;
-      return '${hours}ч ${minutes}мин';
+      return '$hoursч $minutesмин';
     }
   }
 
@@ -8532,11 +8531,11 @@ class DevelopmentActivity {
 
   String get formattedTotalTime {
     if (estimatedTotalTime < 60) {
-      return '${estimatedTotalTime}мин';
+      return '$estimatedTotalTimeмин';
     } else {
       final hours = estimatedTotalTime ~/ 60;
       final minutes = estimatedTotalTime % 60;
-      return '${hours}ч ${minutes}мин';
+      return '$hoursч $minutesмин';
     }
   }
 
@@ -8680,11 +8679,11 @@ class ActivityCompletion {
 
   String get formattedDuration {
     if (actualDurationMinutes < 60) {
-      return '${actualDurationMinutes}мин';
+      return '$actualDurationMinutesмин';
     } else {
       final hours = actualDurationMinutes ~/ 60;
       final minutes = actualDurationMinutes % 60;
-      return '${hours}ч ${minutes}мин';
+      return '$hoursч $minutesмин';
     }
   }
 

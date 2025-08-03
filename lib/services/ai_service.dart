@@ -24,11 +24,8 @@ class AIService {
     required String language,
   }) async {
     // Проверяем кэш
-    final cachedStory = await CacheService.getCachedStory(
-      childName: childName,
-      theme: theme,
-      language: language,
-    );
+    final cacheKey = 'story_${childName}_${theme}_$language';
+    final cachedStory = CacheService.getCachedStory(cacheKey);
     
     if (cachedStory != null) {
       debugPrint('📦 Story loaded from cache');
@@ -79,12 +76,7 @@ class AIService {
         final story = data['choices'][0]['message']['content'];
         
         // Сохраняем в кэш
-        await CacheService.cacheStory(
-          childName: childName,
-          theme: theme,
-          story: story,
-          language: language,
-        );
+        CacheService.cacheStory(cacheKey, story);
         
         return story;
       } else if (response.statusCode == 401) {
@@ -116,11 +108,8 @@ class AIService {
     required String language,
   }) async {
     // Проверяем кэш
-    final cachedAdvice = await CacheService.getCachedAdvice(
-      topic: topic,
-      childAge: childAge,
-      language: language,
-    );
+    final adviceCacheKey = 'advice_${topic}_${childAge}_$language';
+    final cachedAdvice = CacheService.getCachedAdvice(adviceCacheKey);
     
     if (cachedAdvice != null) {
       debugPrint('📦 Advice loaded from cache');
@@ -169,12 +158,7 @@ class AIService {
         final advice = data['choices'][0]['message']['content'];
         
         // Сохраняем в кэш
-        await CacheService.cacheAdvice(
-          topic: topic,
-          childAge: childAge,
-          advice: advice,
-          language: language,
-        );
+        CacheService.cacheAdvice(adviceCacheKey, advice);
         
         return advice;
       } else if (response.statusCode == 401) {

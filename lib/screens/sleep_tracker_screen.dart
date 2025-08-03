@@ -7,7 +7,7 @@ import '../services/firebase_service.dart';
 class SleepTrackerScreen extends StatefulWidget {
   final String childId;
 
-  const SleepTrackerScreen({Key? key, required this.childId}) : super(key: key);
+  const SleepTrackerScreen({super.key, required this.childId});
 
   @override
   State<SleepTrackerScreen> createState() => _SleepTrackerScreenState();

@@ -1,122 +1,164 @@
 // lib/services/error_handler.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Глобальный обработчик ошибок Firebase и сети
 class ErrorHandler {
-  static String getErrorMessage(dynamic error) {
-    if (error is FirebaseAuthException) {
-      return _handleFirebaseAuthError(error);
-    } else if (error is FirebaseException) {
-      return _handleFirebaseError(error);
-    } else if (error.toString().contains('SocketException') ||
-        error.toString().contains('Failed host lookup')) {
-      return 'Нет подключения к интернету. Проверьте соединение.';
-    } else if (error.toString().contains('TimeoutException')) {
-      return 'Превышено время ожидания. Попробуйте еще раз.';
-    } else if (error.toString().contains('Connection refused')) {
-      return 'Не удалось подключиться к серверу. Попробуйте позже.';
-    } else if (error.toString().contains('Invalid API key')) {
-      return 'Проблема с конфигурацией. Обратитесь в поддержку.';
-    } else if (error.toString().contains('Rate limit')) {
-      return 'Слишком много запросов. Подождите немного.';
-    } else if (error.toString().contains('File size exceeds')) {
-      return 'Файл слишком большой. Максимальный размер: 5 МБ.';
+  /// Обработать ошибку Firebase
+  static String handleFirebaseError(dynamic error) {
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return 'Нет доступа к данным. Проверьте настройки Firebase.';
+        case 'unavailable':
+          return 'Сервис временно недоступен. Попробуйте позже.';
+        case 'deadline-exceeded':
+          return 'Превышено время ожидания. Проверьте интернет-соединение.';
+        case 'network-request-failed':
+          return 'Ошибка сети. Проверьте интернет-соединение.';
+        case 'not-found':
+          return 'Данные не найдены.';
+        case 'already-exists':
+          return 'Данные уже существуют.';
+        case 'quota-exceeded':
+          return 'Превышен лимит запросов. Попробуйте позже.';
+        case 'unauthenticated':
+          return 'Требуется авторизация.';
+        default:
+          return 'Ошибка Firebase: ${error.message ?? 'Неизвестная ошибка'}';
+      }
     }
     
-    // Убираем технические детали из сообщения
-    final message = error.toString().replaceAll('Exception: ', '');
-    if (message.length > 100) {
-      return 'Произошла ошибка. Попробуйте еще раз.';
+    if (error.toString().contains('network')) {
+      return 'Проблемы с интернет-соединением';
     }
     
-    return message;
+    return 'Произошла ошибка: ${error.toString()}';
   }
-  
-  static String _handleFirebaseAuthError(FirebaseAuthException error) {
-    switch (error.code) {
-      case 'weak-password':
-        return 'Слишком слабый пароль. Используйте минимум 6 символов.';
-      case 'email-already-in-use':
-        return 'Этот email уже используется другим аккаунтом.';
-      case 'invalid-email':
-        return 'Неверный формат email адреса.';
-      case 'user-not-found':
-        return 'Пользователь с таким email не найден.';
-      case 'wrong-password':
-        return 'Неверный пароль. Попробуйте еще раз.';
-      case 'user-disabled':
-        return 'Этот аккаунт был заблокирован.';
-      case 'too-many-requests':
-        return 'Слишком много попыток. Попробуйте позже.';
-      case 'network-request-failed':
-        return 'Ошибка сети. Проверьте подключение к интернету.';
-      default:
-        return 'Ошибка авторизации: ${error.message}';
-    }
-  }
-  
-  static String _handleFirebaseError(FirebaseException error) {
-    switch (error.code) {
-      case 'unavailable':
-        return 'Сервис временно недоступен. Попробуйте позже.';
-      case 'permission-denied':
-        return 'У вас нет прав для выполнения этого действия.';
-      case 'not-found':
-        return 'Запрашиваемые данные не найдены.';
-      default:
-        return 'Ошибка сервиса: ${error.message}';
-    }
-  }
-  
-  static void showErrorDialog(BuildContext context, dynamic error) {
-    final message = getErrorMessage(error);
-    final isNetworkError = message.contains('интернет') || 
-                          message.contains('сеть') || 
-                          message.contains('подключ');
-    
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(
-                isNetworkError ? Icons.wifi_off : Icons.error_outline,
-                color: Colors.red,
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              const Text('Ошибка'),
-            ],
-          ),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Закрыть'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-  
-  static void showErrorSnackBar(BuildContext context, dynamic error) {
-    final message = getErrorMessage(error);
+
+  /// Показать ошибку пользователю
+  static void showError(BuildContext context, dynamic error, {String? title}) {
+    final message = handleFirebaseError(error);
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (title != null) ...[
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
+                  Text(message),
+                ],
+              ),
+            ),
+          ],
         ),
+        backgroundColor: Colors.red.shade600,
+        duration: const Duration(seconds: 4),
         action: SnackBarAction(
-          label: 'OK',
+          label: 'Закрыть',
           textColor: Colors.white,
-          onPressed: () {},
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
         ),
+      ),
+    );
+  }
+
+  /// Безопасное выполнение Firebase операции
+  static Future<T?> safeExecute<T>(
+    Future<T> Function() operation, {
+    T? fallback,
+    String? errorMessage,
+  }) async {
+    try {
+      return await operation();
+    } catch (e) {
+      debugPrint('Firebase Error: $e');
+      if (errorMessage != null) {
+        debugPrint('Context: $errorMessage');
+      }
+      return fallback;
+    }
+  }
+
+  /// Обработчик для StreamBuilder ошибок
+  static Widget buildErrorWidget(dynamic error, {VoidCallback? onRetry}) {
+    final message = handleFirebaseError(error);
+    
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.cloud_off,
+              size: 64,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Проблемы с подключением',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Повторить'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Показать лоадер с возможностью отмены
+  static Widget buildLoadingWidget({String? message}) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          if (message != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 // import 'package:cached_network_image/cached_network_image.dart';
-import 'package:image_picker/image_picker.dart';
 // import 'dart:io';
 import '../services/firebase_service.dart';
 import '../services/offline_service.dart';
@@ -24,7 +23,6 @@ class _DiaryScreenState extends State<DiaryScreen>
   
   ChildProfile? _activeChild;
   List<DiaryEntry> _entries = [];
-  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
   @override
@@ -49,15 +47,22 @@ class _DiaryScreenState extends State<DiaryScreen>
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     
-    final activeChild = await FirebaseService.getActiveChild();
-    if (mounted && activeChild != null) {
-      setState(() {
-        _activeChild = activeChild;
-      });
-      
-      // Загружаем записи дневника
-      _loadDiaryEntries();
-      _listController.forward();
+    try {
+      final activeChild = await FirebaseService.getActiveChild();
+      if (mounted && activeChild != null) {
+        setState(() {
+          _activeChild = activeChild;
+        });
+        
+        // Загружаем записи дневника
+        _loadDiaryEntries();
+        _listController.forward();
+      }
+    } catch (e) {
+      if (mounted) {
+        // Error logged internally
+        // Продолжаем работу без активного ребенка
+      }
     }
     
     setState(() => _isLoading = false);
@@ -328,7 +333,7 @@ class _DiaryScreenState extends State<DiaryScreen>
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.8,
+        childAspectRatio: 1.0,
       ),
       itemCount: memories.length,
       itemBuilder: (context, index) {
@@ -634,7 +639,7 @@ class _AddEntryDialogState extends State<_AddEntryDialog> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   DiaryEntryType _selectedType = DiaryEntryType.daily;
-  DateTime _selectedDate = DateTime.now();
+  final DateTime _selectedDate = DateTime.now();
 
   @override
   Widget build(BuildContext context) {

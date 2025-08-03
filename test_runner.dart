@@ -3,12 +3,14 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 void main(List<String> arguments) {
-  print('🧪 Master Parenthood Test Runner');
-  print('================================');
+  // print('🧪 Master Parenthood Test Runner');
+  // print('================================');
 
   if (arguments.isEmpty) {
-    print('Usage: dart test_runner.dart [unit|widget|integration|all]');
+    // print('Usage: dart test_runner.dart [unit|widget|integration|all]');
     exit(1);
   }
 
@@ -28,59 +30,65 @@ void main(List<String> arguments) {
       runAllTests();
       break;
     default:
-      print('Unknown test type: $testType');
-      print('Available types: unit, widget, integration, all');
+      if (kDebugMode) {
+        // print('Unknown test type: $testType');
+      }
+      if (kDebugMode) {
+        // print('Available types: unit, widget, integration, all');
+      }
       exit(1);
   }
 }
 
 void runUnitTests() {
-  print('🔬 Running Unit Tests...');
+  // print('🔬 Running Unit Tests...');
   final result = Process.runSync(
     'flutter',
     ['test', 'test/services/'],
     runInShell: true,
   );
   
-  print(result.stdout);
+  // print(result.stdout);
   if (result.stderr.toString().isNotEmpty) {
-    print('Errors:');
-    print(result.stderr);
+    // print('Errors:');
+    // print(result.stderr);
   }
   
   if (result.exitCode == 0) {
-    print('✅ Unit tests passed!');
+    // print('✅ Unit tests passed!');
   } else {
-    print('❌ Unit tests failed!');
+    // print('❌ Unit tests failed!');
     exit(result.exitCode);
   }
 }
 
 void runWidgetTests() {
-  print('🎨 Running Widget Tests...');
+  if (kDebugMode) {
+    // print('🎨 Running Widget Tests...');
+  }
   final result = Process.runSync(
     'flutter',
     ['test', 'test/widgets/'],
     runInShell: true,
   );
   
-  print(result.stdout);
+  // print(result.stdout);
   if (result.stderr.toString().isNotEmpty) {
-    print('Errors:');
-    print(result.stderr);
+    // print('Errors:');
+    // print(result.stderr);
   }
   
   if (result.exitCode == 0) {
-    print('✅ Widget tests passed!');
+    // print('✅ Widget tests passed!');
   } else {
-    print('❌ Widget tests failed!');
+    // print('❌ Widget tests failed!');
     exit(result.exitCode);
   }
 }
 
 void runIntegrationTests() {
-  print('🚀 Running Integration Tests...');
-  print('Note: Make sure you have a connected device or emulator');
+  // print('🚀 Running Integration Tests...');
+  // print('Note: Make sure you have a connected device or emulator');
   
   final result = Process.runSync(
     'flutter',
@@ -88,34 +96,34 @@ void runIntegrationTests() {
     runInShell: true,
   );
   
-  print(result.stdout);
+  // print(result.stdout);
   if (result.stderr.toString().isNotEmpty) {
-    print('Errors:');
-    print(result.stderr);
+    // print('Errors:');
+    // print(result.stderr);
   }
   
   if (result.exitCode == 0) {
-    print('✅ Integration tests passed!');
+    // print('✅ Integration tests passed!');
   } else {
-    print('❌ Integration tests failed!');
+    // print('❌ Integration tests failed!');
     exit(result.exitCode);
   }
 }
 
 void runAllTests() {
-  print('🧪 Running All Tests...');
-  print('');
+  // print('🧪 Running All Tests...');
+  // print('');
   
   try {
     runUnitTests();
-    print('');
+    // print('');
     runWidgetTests();
-    print('');
+    // print('');
     runIntegrationTests();
-    print('');
-    print('🎉 All tests completed successfully!');
+    // print('');
+    // print('🎉 All tests completed successfully!');
   } catch (e) {
-    print('💥 Test suite failed: $e');
+    // print('💥 Test suite failed: $e');
     exit(1);
   }
 }

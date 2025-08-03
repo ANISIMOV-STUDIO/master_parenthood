@@ -6,7 +6,7 @@ import '../data/food_database.dart';
 class NutritionTrackerScreen extends StatefulWidget {
   final String childId;
 
-  const NutritionTrackerScreen({Key? key, required this.childId}) : super(key: key);
+  const NutritionTrackerScreen({super.key, required this.childId});
 
   @override
   State<NutritionTrackerScreen> createState() => _NutritionTrackerScreenState();

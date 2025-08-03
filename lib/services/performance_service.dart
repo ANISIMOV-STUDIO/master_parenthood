@@ -6,8 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PerformanceService {
   static const String _keyAppStartTime = 'app_start_time';
   static const String _keyLastPerformanceCheck = 'last_performance_check';
-  static const String _keyAverageFrameTime = 'average_frame_time';
-  
+
   static DateTime? _appStartTime;
   static final List<Duration> _frameTimes = [];
   static bool _isMonitoring = false;

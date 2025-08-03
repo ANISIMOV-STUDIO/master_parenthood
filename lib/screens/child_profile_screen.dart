@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:math' as math;
 import 'dart:io';
-import '../l10n/app_localizations.dart';
 import '../services/firebase_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -28,8 +27,8 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
   bool _isUploadingPhoto = false;
   
   // Данные для графиков
-  List<FlSpot> _heightData = [];
-  List<FlSpot> _weightData = [];
+  final List<FlSpot> _heightData = [];
+  final List<FlSpot> _weightData = [];
   
   // Вехи развития
   final List<Milestone> _milestones = [
@@ -89,7 +88,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
     // Генерируем примерные данные роста и веса
     final now = DateTime.now();
     for (int i = 0; i <= 24; i++) {
-      final date = now.subtract(Duration(days: 30 * (24 - i)));
+      now.subtract(Duration(days: 30 * (24 - i)));
       final ageInMonths = i;
       
       // Примерные данные роста (см)
@@ -305,7 +304,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const SizedBox(height: 60), // Место для AppBar
+            const Spacer(flex: 2), // Гибкое место для AppBar
             
             // Фото ребенка
             Hero(

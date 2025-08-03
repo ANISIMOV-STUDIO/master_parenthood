@@ -18,9 +18,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   late AnimationController _cardController;
   
   ChildProfile? _activeChild;
-  List<FlSpot> _heightData = [];
-  List<FlSpot> _weightData = [];
-  List<FlSpot> _progressData = [];
+  final List<FlSpot> _heightData = [];
+  final List<FlSpot> _weightData = [];
+  final List<FlSpot> _progressData = [];
   
   // Периоды анализа
   int _selectedPeriod = 0; // 0: 3 месяца, 1: 6 месяцев, 2: 1 год
@@ -105,14 +105,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         final month = startMonth + i;
         if (month <= ageInMonths) {
           // Примерные данные роста (реалистичная кривая)
-          final baseHeight = 50.0;
+          const baseHeight = 50.0;
           final growth = month * 2.5;
           final variation = math.sin(month * 0.5) * 1.5;
           final height = baseHeight + growth + variation;
           _heightData.add(FlSpot(month.toDouble(), height));
           
           // Примерные данные веса
-          final baseWeight = 3.5;
+          const baseWeight = 3.5;
           final weightGain = month * 0.6;
           final weightVariation = math.cos(month * 0.3) * 0.3;
           final weight = baseWeight + weightGain + weightVariation;
@@ -136,43 +136,119 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Аналитика развития'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1a1a2e)
+                  : const Color(0xFFf8faff),
+              Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF16213e)
+                  : const Color(0xFFe8f2ff),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildModernAppBar(),
+              Expanded(
+                child: _activeChild == null
+                    ? _buildNoDataState()
+                    : RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildChildHeader(),
+                              const SizedBox(height: 20),
+                              _buildPeriodSelector(),
+                              const SizedBox(height: 20),
+                              _buildStatsCards(),
+                              const SizedBox(height: 32),
+                              _buildHeightChart(),
+                              const SizedBox(height: 32),
+                              _buildWeightChart(),
+                              const SizedBox(height: 32),
+                              _buildProgressChart(),
+                              const SizedBox(height: 32),
+                              _buildInsights(),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Аналитика развития',
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : const Color(0xFF2A2D3A),
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  'Отслеживайте прогресс ребенка',
+                  style: TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withValues(alpha: 0.7)
+                        : const Color(0xFF6B7280),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.white),
+              onPressed: _loadData,
+            ),
           ),
         ],
       ),
-      body: _activeChild == null
-          ? _buildNoDataState()
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildChildHeader(),
-                    const SizedBox(height: 24),
-                    _buildPeriodSelector(),
-                    const SizedBox(height: 24),
-                    _buildStatsCards(),
-                    const SizedBox(height: 24),
-                    _buildHeightChart(),
-                    const SizedBox(height: 24),
-                    _buildWeightChart(),
-                    const SizedBox(height: 24),
-                    _buildProgressChart(),
-                    const SizedBox(height: 24),
-                    _buildInsights(),
-                  ],
-                ),
-              ),
-            ),
     );
   }
 
@@ -278,11 +354,24 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
 
   Widget _buildPeriodSelector() {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: _periods.asMap().entries.map((entry) {
@@ -293,20 +382,34 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           return Expanded(
             child: GestureDetector(
               onTap: () {
-                              setState(() {
-                _selectedPeriod = index;
-                _loadAnalyticsData();
-              });
+                setState(() {
+                  _selectedPeriod = index;
+                  _loadAnalyticsData();
+                });
                 _chartController.reset();
                 _chartController.forward();
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: isSelected 
-                      ? Theme.of(context).primaryColor
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
+                  gradient: isSelected 
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                        )
+                      : null,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: isSelected 
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF667eea).withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Text(
                   period,
@@ -314,10 +417,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   style: TextStyle(
                     color: isSelected 
                         ? Colors.white
-                        : Theme.of(context).textTheme.bodyMedium?.color,
+                        : Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : const Color(0xFF6B7280),
                     fontWeight: isSelected 
                         ? FontWeight.bold
-                        : FontWeight.normal,
+                        : FontWeight.w600,
+                    fontSize: 14,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),
@@ -325,7 +432,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           );
         }).toList(),
       ),
-    ).animate(controller: _cardController).fadeIn(delay: 200.ms).scale(begin: const Offset(0.9, 0.9));
+    ).animate(controller: _cardController)
+      .fadeIn(delay: 200.ms, duration: 600.ms)
+      .scale(begin: const Offset(0.95, 0.95))
+      .shimmer(delay: 300.ms, duration: 800.ms);
   }
 
   Widget _buildStatsCards() {
@@ -379,11 +489,27 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   Widget _buildStatCard(String title, String value, String subtitle, 
       IconData icon, Color color, int index) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.1),
+            color.withValues(alpha: 0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withValues(alpha: 0.2),
+          width: 1,
+        ),
         boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
@@ -394,35 +520,54 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       child: Column(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  color.withValues(alpha: 0.3),
+                  color.withValues(alpha: 0.1),
+                ],
+              ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             value,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: color,
+              letterSpacing: 0.5,
             ),
           ),
+          const SizedBox(height: 4),
           Text(
             title,
             style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
+              fontSize: 13,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             subtitle,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 11,
               color: Colors.grey.shade500,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -433,9 +578,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   }
 
   Widget _buildHeightChart() {
-    return _buildChartContainer(
+    return _buildModernChartContainer(
       'График роста',
       'Рост ребенка по месяцам',
+      Icons.height,
+      const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+      ),
       LineChart(
         LineChartData(
           gridData: FlGridData(
@@ -444,33 +595,31 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             horizontalInterval: 5,
             getDrawingHorizontalLine: (value) {
               return FlLine(
-                color: Colors.grey.withValues(alpha: 0.2),
-                strokeWidth: 1,
+                color: Colors.white.withValues(alpha: 0.1),
+                strokeWidth: 0.8,
               );
             },
           ),
-          titlesData: _buildTitlesData('см'),
-          borderData: FlBorderData(
-            show: true,
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-          ),
+          titlesData: _buildModernTitlesData('см'),
+          borderData: FlBorderData(show: false),
           lineBarsData: [
             LineChartBarData(
               spots: _heightData,
               isCurved: true,
-              gradient: LinearGradient(
-                colors: [Colors.blue.withValues(alpha: 0.8), Colors.blue.withValues(alpha: 0.3)],
+              curveSmoothness: 0.4,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF667eea), Color(0xFF764ba2)],
               ),
-              barWidth: 3,
+              barWidth: 4,
               isStrokeCapRound: true,
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   return FlDotCirclePainter(
-                    radius: 4,
-                    color: Colors.blue,
-                    strokeWidth: 2,
-                    strokeColor: Colors.white,
+                    radius: 6,
+                    color: Colors.white,
+                    strokeWidth: 3,
+                    strokeColor: const Color(0xFF667eea),
                   );
                 },
               ),
@@ -478,24 +627,75 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    Colors.blue.withValues(alpha: 0.2),
-                    Colors.blue.withValues(alpha: 0.05),
+                    const Color(0xFF667eea).withValues(alpha: 0.3),
+                    const Color(0xFF764ba2).withValues(alpha: 0.1),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
               ),
+              shadow: const Shadow(
+                color: Color(0xFF667eea),
+                blurRadius: 8,
+              ),
             ),
           ],
+          lineTouchData: LineTouchData(
+            enabled: true,
+            touchTooltipData: LineTouchTooltipData(
+              tooltipBgColor: const Color(0xFF2A2D3A),
+              tooltipRoundedRadius: 12,
+              tooltipPadding: const EdgeInsets.all(12),
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  return LineTooltipItem(
+                    '${spot.y.toStringAsFixed(1)} см\n${spot.x.toStringAsFixed(0)} мес',
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  );
+                }).toList();
+              },
+            ),
+            handleBuiltInTouches: true,
+            getTouchedSpotIndicator: (barData, spotIndexes) {
+              return spotIndexes.map((index) {
+                return TouchedSpotIndicatorData(
+                  FlLine(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    strokeWidth: 2,
+                  ),
+                  FlDotData(
+                    getDotPainter: (spot, percent, barData, index) {
+                      return FlDotCirclePainter(
+                        radius: 8,
+                        color: Colors.white,
+                        strokeWidth: 3,
+                        strokeColor: const Color(0xFF667eea),
+                      );
+                    },
+                  ),
+                );
+              }).toList();
+            },
+          ),
         ),
       ),
     );
   }
 
   Widget _buildWeightChart() {
-    return _buildChartContainer(
+    return _buildModernChartContainer(
       'График веса',
       'Вес ребенка по месяцам',
+      Icons.monitor_weight,
+      const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF11998e), Color(0xFF38ef7d)],
+      ),
       LineChart(
         LineChartData(
           gridData: FlGridData(
@@ -504,33 +704,31 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             horizontalInterval: 1,
             getDrawingHorizontalLine: (value) {
               return FlLine(
-                color: Colors.grey.withValues(alpha: 0.2),
-                strokeWidth: 1,
+                color: Colors.white.withValues(alpha: 0.1),
+                strokeWidth: 0.8,
               );
             },
           ),
-          titlesData: _buildTitlesData('кг'),
-          borderData: FlBorderData(
-            show: true,
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-          ),
+          titlesData: _buildModernTitlesData('кг'),
+          borderData: FlBorderData(show: false),
           lineBarsData: [
             LineChartBarData(
               spots: _weightData,
               isCurved: true,
-              gradient: LinearGradient(
-                colors: [Colors.green.withValues(alpha: 0.8), Colors.green.withValues(alpha: 0.3)],
+              curveSmoothness: 0.4,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF11998e), Color(0xFF38ef7d)],
               ),
-              barWidth: 3,
+              barWidth: 4,
               isStrokeCapRound: true,
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   return FlDotCirclePainter(
-                    radius: 4,
-                    color: Colors.green,
-                    strokeWidth: 2,
-                    strokeColor: Colors.white,
+                    radius: 6,
+                    color: Colors.white,
+                    strokeWidth: 3,
+                    strokeColor: const Color(0xFF11998e),
                   );
                 },
               ),
@@ -538,146 +736,249 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 show: true,
                 gradient: LinearGradient(
                   colors: [
-                    Colors.green.withValues(alpha: 0.2),
-                    Colors.green.withValues(alpha: 0.05),
+                    const Color(0xFF11998e).withValues(alpha: 0.3),
+                    const Color(0xFF38ef7d).withValues(alpha: 0.1),
                   ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
               ),
+              shadow: const Shadow(
+                color: Color(0xFF11998e),
+                blurRadius: 8,
+              ),
             ),
           ],
+          lineTouchData: LineTouchData(
+            enabled: true,
+            touchTooltipData: LineTouchTooltipData(
+              tooltipBgColor: const Color(0xFF2A2D3A),
+              tooltipRoundedRadius: 12,
+              tooltipPadding: const EdgeInsets.all(12),
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  return LineTooltipItem(
+                    '${spot.y.toStringAsFixed(1)} кг\n${spot.x.toStringAsFixed(0)} мес',
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  );
+                }).toList();
+              },
+            ),
+            handleBuiltInTouches: true,
+            getTouchedSpotIndicator: (barData, spotIndexes) {
+              return spotIndexes.map((index) {
+                return TouchedSpotIndicatorData(
+                  FlLine(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    strokeWidth: 2,
+                  ),
+                  FlDotData(
+                    getDotPainter: (spot, percent, barData, index) {
+                      return FlDotCirclePainter(
+                        radius: 8,
+                        color: Colors.white,
+                        strokeWidth: 3,
+                        strokeColor: const Color(0xFF11998e),
+                      );
+                    },
+                  ),
+                );
+              }).toList();
+            },
+          ),
         ),
       ),
     );
   }
 
   Widget _buildProgressChart() {
-    return _buildChartContainer(
+    final progressValue = _progressData.isNotEmpty ? _progressData.last.y : 0;
+    return _buildModernChartContainer(
       'Прогресс развития',
       'Процент выполненных вех развития',
-      LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 20,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withValues(alpha: 0.2),
-                strokeWidth: 1,
-              );
-            },
-          ),
-          titlesData: _buildTitlesData('%'),
-          borderData: FlBorderData(
-            show: true,
-            border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-          ),
-          minY: 0,
-          maxY: 100,
-          lineBarsData: [
-            LineChartBarData(
-              spots: _progressData,
-              isCurved: true,
-              gradient: LinearGradient(
-                colors: [Colors.orange.withValues(alpha: 0.8), Colors.orange.withValues(alpha: 0.3)],
-              ),
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: FlDotData(
-                show: true,
-                getDotPainter: (spot, percent, barData, index) {
-                  return FlDotCirclePainter(
-                    radius: 4,
-                    color: Colors.orange,
-                    strokeWidth: 2,
-                    strokeColor: Colors.white,
-                  );
-                },
-              ),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.orange.withValues(alpha: 0.2),
-                    Colors.orange.withValues(alpha: 0.05),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+      Icons.trending_up,
+      const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFf093fb), Color(0xFFf5576c)],
+      ),
+      Stack(
+        children: [
+          PieChart(
+            PieChartData(
+              startDegreeOffset: -90,
+              sectionsSpace: 4,
+              centerSpaceRadius: 80,
+              sections: [
+                PieChartSectionData(
+                  value: progressValue.toDouble(),
+                  color: Colors.white,
+                  radius: 20,
+                  showTitle: false,
                 ),
-              ),
+                PieChartSectionData(
+                  value: (100 - progressValue).toDouble(),
+                  color: Colors.white.withValues(alpha: 0.3),
+                  radius: 20,
+                  showTitle: false,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '${progressValue.toInt()}%',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                  ),
+                ),
+                Text(
+                  'завершено',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildChartContainer(String title, String subtitle, Widget chart) {
+
+
+
+
+  Widget _buildModernChartContainer(String title, String subtitle, IconData icon, LinearGradient gradient, Widget chart) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: gradient.colors.first.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 5,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: 0.1),
+              Colors.white.withValues(alpha: 0.05),
+            ],
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.grey.shade600,
+            const SizedBox(height: 24),
+            Container(
+              height: 280,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: chart,
             ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 250,
-            child: chart,
-          ),
-        ],
+          ],
+        ),
       ),
-    ).animate(controller: _chartController).fadeIn().slideY(begin: 0.3);
+    ).animate(controller: _chartController)
+      .fadeIn(duration: 800.ms)
+      .slideY(begin: 0.2, curve: Curves.easeOutQuart)
+      .shimmer(delay: 400.ms, duration: 1000.ms);
   }
 
-  FlTitlesData _buildTitlesData(String unit) {
+  FlTitlesData _buildModernTitlesData(String unit) {
     return FlTitlesData(
       show: true,
-      rightTitles: const AxisTitles(
-        sideTitles: SideTitles(showTitles: false),
-      ),
-      topTitles: const AxisTitles(
-        sideTitles: SideTitles(showTitles: false),
-      ),
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 30,
-          interval: 1,
+          reservedSize: 32,
+          interval: 2,
           getTitlesWidget: (value, meta) {
-            return SideTitleWidget(
-              axisSide: meta.axisSide,
-              child: Text(
-                '${value.toInt()}м',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w300,
-                  fontSize: 12,
-                ),
+            return Text(
+              '${value.toInt()}м',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             );
           },
@@ -686,20 +987,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          interval: unit == 'см' ? 5 : unit == 'кг' ? 1 : 20,
           reservedSize: 40,
+          interval: unit == 'см' ? 10 : 1,
           getTitlesWidget: (value, meta) {
-            return SideTitleWidget(
-              axisSide: meta.axisSide,
-              child: Text(
-                unit == '%' 
-                    ? '${value.toInt()}%'
-                    : '${value.toStringAsFixed(unit == 'кг' ? 1 : 0)}',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w300,
-                  fontSize: 12,
-                ),
+            return Text(
+              value.toInt().toString(),
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             );
           },
@@ -707,6 +1003,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       ),
     );
   }
+
+
 
   Widget _buildInsights() {
     if (_heightData.isEmpty || _weightData.isEmpty) return const SizedBox();

@@ -270,17 +270,17 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
         ),
         _buildMetricCard(
           'Время кадра',
-          '${_stats!.averageFrameTimeMs.toStringAsFixed(2)} мс',
+          '$_stats!.averageFrameTimeMs.toStringAsFixed(2)} мс',
           Icons.timer,
           _getFrameTimeColor(_stats!.averageFrameTimeMs),
           'Среднее время отрисовки кадра',
         ),
         _buildMetricCard(
           'Пропуски кадров',
-          '${_stats!.frameDrops} / ${_stats!.totalFrames}',
+          '$_stats!.frameDrops} / ${_stats!.totalFrames}',
           Icons.skip_next,
           _getFrameDropColor(_stats!.frameDropPercentage),
-          '${_stats!.frameDropPercentage.toStringAsFixed(1)}% пропущенных кадров',
+          '$_stats!.frameDropPercentage.toStringAsFixed(1)}% пропущенных кадров',
         ),
         _buildMetricCard(
           'Время работы',
@@ -481,11 +481,11 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
     final seconds = duration.inSeconds % 60;
 
     if (hours > 0) {
-      return '${hours}ч ${minutes}м ${seconds}с';
+      return '$hours}ч $minutesм $secondsс';
     } else if (minutes > 0) {
-      return '${minutes}м ${seconds}с';
+      return '$minutes}м $secondsс';
     } else {
-      return '${seconds}с';
+      return '$seconds}с';
     }
   }
 

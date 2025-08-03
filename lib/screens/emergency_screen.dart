@@ -140,15 +140,15 @@ class _EmergencyScreenState extends State<EmergencyScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.medical_services,
                       color: Colors.white,
                       size: 28,
                     ),
-                    const SizedBox(width: 10),
-                    const Text(
+                    SizedBox(width: 10),
+                    Text(
                       'Экстренные ситуации',
                       style: TextStyle(
                         fontSize: 24,
@@ -274,7 +274,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                         ),
                       ],
                     ),
-                    child: Center(
+                    child: const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -283,8 +283,8 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                             color: Colors.white,
                             size: 40,
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
+                          SizedBox(height: 8),
+                          Text(
                             'SOS',
                             style: TextStyle(
                               color: Colors.white,
@@ -377,9 +377,9 @@ class _EmergencyScreenState extends State<EmergencyScreen>
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-              childAspectRatio: 1.2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.0,
             ),
             itemCount: actions.length,
             itemBuilder: (context, index) {

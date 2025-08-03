@@ -140,7 +140,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: const Icon(
@@ -154,9 +154,9 @@ class _VaccinationScreenState extends State<VaccinationScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Календарь прививок',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -165,7 +165,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
                             Text(
                               'Контроль вакцинации',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                                 fontSize: 16,
                               ),
                             ).animate().slideX(delay: 400.ms),
@@ -181,7 +181,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
                     indicatorColor: Colors.white,
                     indicatorWeight: 3,
                     labelColor: Colors.white,
-                    unselectedLabelColor: Colors.white.withOpacity(0.7),
+                    unselectedLabelColor: Colors.white.withValues(alpha: 0.7),
                     labelStyle: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -223,7 +223,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha: 0.1),
                 spreadRadius: 1,
                 blurRadius: 10,
                 offset: const Offset(0, 4),
@@ -269,7 +269,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -305,7 +305,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha: 0.1),
                 spreadRadius: 1,
                 blurRadius: 10,
                 offset: const Offset(0, 4),
@@ -332,14 +332,14 @@ class _VaccinationScreenState extends State<VaccinationScreen>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF4A90E2).withOpacity(0.3),
+                    color: const Color(0xFF4A90E2).withValues(alpha: 0.3),
                     spreadRadius: 2,
                     blurRadius: 4,
                   ),
                 ],
               ),
               todayDecoration: BoxDecoration(
-                color: const Color(0xFF4A90E2).withOpacity(0.5),
+                color: const Color(0xFF4A90E2).withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               weekendTextStyle: TextStyle(color: Colors.grey[600]),
@@ -500,7 +500,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             spreadRadius: 1,
             blurRadius: 10,
             offset: const Offset(0, 4),
@@ -522,7 +522,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
+                        color: statusColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(statusIcon, color: statusColor, size: 20),
@@ -596,9 +596,9 @@ class _VaccinationScreenState extends State<VaccinationScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -637,7 +637,7 @@ class _VaccinationScreenState extends State<VaccinationScreen>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 64, color: color),
@@ -751,7 +751,7 @@ class VaccinationDetailsSheet extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(vaccination.status).withOpacity(0.1),
+                      color: _getStatusColor(vaccination.status).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(

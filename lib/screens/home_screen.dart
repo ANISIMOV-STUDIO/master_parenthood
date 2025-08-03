@@ -26,6 +26,8 @@ import 'development_screen.dart';
 import 'social_milestones_screen.dart';
 import '../widgets/connectivity_indicator.dart';
 import '../widgets/sync_status_widget.dart';
+import '../services/cache_service.dart';
+import '../services/error_handler.dart';
 // import '../services/sync_service.dart';
 
 
@@ -37,7 +39,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  late AnimationController _backgroundController;
   late TabController _tabController;
   UserProfile? _userProfile;
   List<ChildProfile> _children = [];
@@ -46,44 +47,91 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _backgroundController = AnimationController(
-      duration: const Duration(seconds: 10),
-      vsync: this,
-    )..repeat();
-
     _tabController = TabController(length: 5, vsync: this);
     _loadUserData();
   }
 
   Future<void> _loadUserData() async {
-    final profile = await FirebaseService.getUserProfile();
-    final activeChild = await FirebaseService.getActiveChild();
+    // Сначала загружаем из кэша для быстрого отображения
+    final cachedProfile = CacheService.getCachedUserProfile();
+    final cachedChild = CacheService.getCachedActiveChild();
+    
+    if (cachedProfile != null || cachedChild != null) {
+      if (mounted) {
+        setState(() {
+          _userProfile = cachedProfile;
+          _activeChild = cachedChild;
+        });
+      }
+    }
+    
+    // Затем обновляем из сети в фоне
+    try {
+      final profile = await ErrorHandler.safeExecute(
+        () => FirebaseService.getUserProfile(),
+        fallback: cachedProfile,
+        errorMessage: 'Loading user profile',
+      );
+      
+      final activeChild = await ErrorHandler.safeExecute(
+        () => FirebaseService.getActiveChild(),
+        fallback: cachedChild,
+        errorMessage: 'Loading active child',
+      );
+
+      // Кэшируем полученные данные
+      CacheService.cacheUserProfile(profile);
+      CacheService.cacheActiveChild(activeChild);
 
     if (mounted) {
       setState(() {
         _userProfile = profile;
         _activeChild = activeChild;
       });
+      }
+    } catch (e) {
+      // Если нет кэша и произошла ошибка - показываем её
+      if (cachedProfile == null && cachedChild == null && mounted) {
+        ErrorHandler.showError(context, e, title: 'Ошибка загрузки данных');
+      }
     }
   }
 
   Future<void> _navigateWithChildCheck(BuildContext context, Widget Function(String) builder) async {
-    final activeChild = await FirebaseService.getActiveChild();
+    // Используем кэшированного ребенка для мгновенной навигации
+    var activeChild = CacheService.getCachedActiveChild() ?? _activeChild;
+    
     if (activeChild != null && context.mounted) {
-      Navigator.push(context, MaterialPageRoute(builder: (context) => builder(activeChild.id)));
-    } else if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Сначала добавьте профиль ребенка'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => builder(activeChild!.id)));
+      return;
+    }
+    
+    try {
+      // Только если нет в кэше - делаем запрос к сети
+      activeChild = await FirebaseService.getActiveChild();
+      
+      if (activeChild != null) {
+        CacheService.cacheActiveChild(activeChild);
+        if (context.mounted) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => builder(activeChild!.id)));
+        }
+      } else if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Сначала добавьте профиль ребенка'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ErrorHandler.showError(context, e, title: 'Ошибка навигации');
+      }
     }
   }
 
   @override
   void dispose() {
-    _backgroundController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -99,28 +147,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       'Профиль': {
         'icon': Icons.child_care,
         'features': [
-          FeatureItem(
+      FeatureItem(
             icon: Icons.child_care,
             title: 'Профиль ребенка',
             subtitle: 'Рост, вес, развитие',
             gradient: [Colors.blue, Colors.lightBlue],
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ChildProfileScreen())),
-          ),
-          FeatureItem(
+      ),
+      FeatureItem(
             icon: Icons.show_chart,
             title: 'Физическое развитие',
             subtitle: 'Графики роста и ВОЗ',
             gradient: [Colors.purple[700]!, Colors.purple[500]!],
             onTap: () => _navigateWithChildCheck(context, (childId) => GrowthChartsScreen(childId: childId)),
-          ),
-          FeatureItem(
+      ),
+      FeatureItem(
             icon: Icons.psychology,
             title: 'Раннее развитие',
             subtitle: 'Активности и прогресс',
             gradient: [Colors.purple[700]!, Colors.purple[500]!],
             onTap: () => _navigateWithChildCheck(context, (childId) => DevelopmentScreen(childId: childId)),
-          ),
-          FeatureItem(
+      ),
+      FeatureItem(
             icon: Icons.people,
             title: 'Социальные вехи',
             subtitle: 'Эмоциональное развитие',
@@ -132,56 +180,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       'Здоровье': {
         'icon': Icons.health_and_safety,
         'features': [
-          FeatureItem(
-            icon: Icons.vaccines,
-            title: 'Прививки',
-            subtitle: 'Календарь вакцинации',
-            gradient: [Colors.blue[700]!, Colors.blue[500]!],
+      FeatureItem(
+        icon: Icons.vaccines,
+        title: 'Прививки',
+        subtitle: 'Календарь вакцинации',
+        gradient: [Colors.blue[700]!, Colors.blue[500]!],
             onTap: () => _navigateWithChildCheck(context, (childId) => VaccinationScreen(childId: childId)),
-          ),
-          FeatureItem(
-            icon: Icons.medical_services,
-            title: 'Медкарта',
-            subtitle: 'Записи врачей, анализы',
-            gradient: [Colors.green[700]!, Colors.green[500]!],
+      ),
+      FeatureItem(
+        icon: Icons.medical_services,
+        title: 'Медкарта',
+        subtitle: 'Записи врачей, анализы',
+        gradient: [Colors.green[700]!, Colors.green[500]!],
             onTap: () => _navigateWithChildCheck(context, (childId) => MedicalRecordsScreen(childId: childId)),
-          ),
-          FeatureItem(
+      ),
+      FeatureItem(
             icon: Icons.emergency,
             title: 'Экстренные ситуации',
             subtitle: 'SOS и первая помощь',
             gradient: [Colors.red[800]!, Colors.red[600]!],
-            onTap: () async {
-              final activeChild = await FirebaseService.getActiveChild();
+        onTap: () async {
+          final activeChild = await FirebaseService.getActiveChild();
               if (context.mounted) {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => EmergencyScreen(childId: activeChild?.id)));
-              }
-            },
-          ),
+          }
+        },
+      ),
         ]
       },
       'Питание': {
         'icon': Icons.restaurant,
         'features': [
-          FeatureItem(
-            icon: Icons.restaurant,
-            title: 'Дневник питания',
-            subtitle: 'Отслеживание и анализ питания',
-            gradient: [Colors.green[700]!, Colors.green[500]!],
+      FeatureItem(
+        icon: Icons.restaurant,
+        title: 'Дневник питания',
+        subtitle: 'Отслеживание и анализ питания',
+        gradient: [Colors.green[700]!, Colors.green[500]!],
             onTap: () => _navigateWithChildCheck(context, (childId) => NutritionTrackerScreen(childId: childId)),
-          ),
-          FeatureItem(
-            icon: Icons.menu_book,
-            title: 'Рецепты',
-            subtitle: 'Здоровые рецепты по возрасту',
-            gradient: [Colors.orange[700]!, Colors.orange[500]!],
+      ),
+      FeatureItem(
+        icon: Icons.menu_book,
+        title: 'Рецепты',
+        subtitle: 'Здоровые рецепты по возрасту',
+        gradient: [Colors.orange[700]!, Colors.orange[500]!],
             onTap: () => _navigateWithChildCheck(context, (childId) => RecipesScreen(childId: childId)),
-          ),
-          FeatureItem(
-            icon: Icons.bedtime,
-            title: 'Трекер сна',
-            subtitle: 'Мониторинг качества сна',
-            gradient: [Colors.indigo[700]!, Colors.indigo[500]!],
+      ),
+      FeatureItem(
+        icon: Icons.bedtime,
+        title: 'Трекер сна',
+        subtitle: 'Мониторинг качества сна',
+        gradient: [Colors.indigo[700]!, Colors.indigo[500]!],
             onTap: () => _navigateWithChildCheck(context, (childId) => SleepTrackerScreen(childId: childId)),
           ),
         ]
@@ -195,15 +243,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             subtitle: 'Сон, еда, прогулки',
             gradient: [Colors.teal, Colors.cyan],
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ActivityTrackerScreen())),
-          ),
-          FeatureItem(
+      ),
+      FeatureItem(
             icon: Icons.book,
             title: 'Дневник',
             subtitle: 'Записи и фото',
             gradient: [Colors.pink, Colors.purple],
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const DiaryScreen())),
-          ),
-          FeatureItem(
+      ),
+      FeatureItem(
             icon: Icons.analytics,
             title: 'Аналитика',
             subtitle: 'Статистика развития',
@@ -221,8 +269,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             subtitle: 'Советы по воспитанию',
             gradient: [Colors.purple, Colors.pink],
             onTap: () => _showAIAssistant(context),
-          ),
-          FeatureItem(
+      ),
+      FeatureItem(
             icon: Icons.menu_book,
             title: loc.stories,
             subtitle: 'Персональные сказки',
@@ -243,36 +291,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // Анимированный фон
-          AnimatedBuilder(
-            animation: _backgroundController,
-            builder: (context, child) {
-              return Container(
+          // Статичный оптимизированный фон
+          RepaintBoundary(
+            child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    begin: Alignment(
-                      _backgroundController.value * 2 - 1,
-                      _backgroundController.value * 2 - 1,
-                    ),
-                    end: Alignment(
-                      1 - _backgroundController.value * 2,
-                      1 - _backgroundController.value * 2,
-                    ),
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                     colors: Theme.of(context).brightness == Brightness.dark
                         ? [
-                      Colors.purple.shade900,
-                      Colors.blue.shade900,
-                      Colors.indigo.shade900,
-                    ]
-                        : [
-                      Colors.purple.shade50,
-                      Colors.pink.shade50,
-                      Colors.blue.shade50,
+                    const Color(0xFF1a1a2e),
+                    const Color(0xFF16213e),
+                    const Color(0xFF0f3460),
+                  ]
+                      : [
+                    const Color(0xFFf8faff),
+                    const Color(0xFFe8f2ff),
+                    const Color(0xFFddeeff),
                     ],
                   ),
                 ),
-              );
-            },
+            ),
           ),
 
           // Контент
@@ -308,16 +347,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   child: TabBar(
                     controller: _tabController,
-                    isScrollable: true,
+                    isScrollable: false,
                     indicatorSize: TabBarIndicatorSize.tab,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                     indicator: BoxDecoration(
                       color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(25),
                     ),
-                    labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    unselectedLabelStyle: const TextStyle(fontSize: 11),
+                    labelStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    unselectedLabelStyle: const TextStyle(fontSize: 9),
                     tabs: featureGroups.entries.map((entry) => Tab(
-                      icon: Icon(entry.value['icon'] as IconData, size: 20),
+                      icon: Icon(entry.value['icon'] as IconData, size: 16),
                       text: entry.key,
                     )).toList(),
                   ),
@@ -332,25 +372,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     children: featureGroups.values.map((group) {
                       final features = group['features'] as List<FeatureItem>;
                       return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: GridView.builder(
                           physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: features.length >= 4 ? 2 : features.length,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.0,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                      childAspectRatio: 1.0,
                           ),
                           itemCount: features.length,
-                          itemBuilder: (context, index) {
-                            return RepaintBoundary(
-                              child: _FeatureCard(
+                      itemBuilder: (context, index) {
+                        return RepaintBoundary(
+                          child: _FeatureCard(
                                 feature: features[index],
-                                index: index,
-                              ),
-                            );
-                          },
-                        ),
+                            index: index,
+                          ),
+                        );
+                      },
+                    ),
                       );
                     }).toList(),
                   ),
@@ -360,9 +400,61 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 StreamBuilder<List<ChildProfile>>(
                   stream: FirebaseService.getChildrenStream(),
                   builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      // Показываем кэшированные данные если есть
+                      final cachedChild = CacheService.getCachedActiveChild();
+                      if (cachedChild != null) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _CompactStat(icon: Icons.child_care, value: cachedChild.name, size: 12),
+                              _CompactStat(icon: Icons.cake, value: cachedChild.ageFormatted, size: 12),
+                              if (cachedChild.height > 0) _CompactStat(icon: Icons.height, value: '${cachedChild.height.toInt()} см', size: 12),
+                              Icon(Icons.offline_bolt, size: 14, color: Colors.orange.shade700),
+                            ],
+                          ),
+                        );
+                      }
+                      
+                      // Если нет кэша - показываем ошибку
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.cloud_off, size: 16, color: Theme.of(context).colorScheme.error),
+                            const SizedBox(width: 8),
+                            Text(
+                              ErrorHandler.handleFirebaseError(snapshot.error),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    
                     if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                       _children = snapshot.data!;
                       final child = _activeChild ?? snapshot.data!.first;
+                      // Обновляем кэш при получении новых данных
+                      CacheService.cacheActiveChild(child);
+                      
                       return Container(
                         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -380,13 +472,110 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         ),
                       );
                     }
+                    
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      // Показываем кэш во время загрузки
+                      final cachedChild = CacheService.getCachedActiveChild();
+                      if (cachedChild != null) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _CompactStat(icon: Icons.child_care, value: cachedChild.name, size: 12),
+                              _CompactStat(icon: Icons.cake, value: cachedChild.ageFormatted, size: 12),
+                              if (cachedChild.height > 0) _CompactStat(icon: Icons.height, value: '${cachedChild.height.toInt()} см', size: 12),
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 1.5),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text('Загрузка...', style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      );
+                    }
+                    
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      child: OutlinedButton.icon(
-                        onPressed: () => _showAddChildDialog(context),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Добавить ребенка', style: TextStyle(fontSize: 12)),
-                        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showAddChildDialog(context),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Добавить ребенка', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 2,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: PopupMenuButton<String>(
+                              icon: Icon(Icons.arrow_drop_down, size: 20, color: Theme.of(context).primaryColor),
+                              tooltip: 'Выбрать тип ребенка',
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              onSelected: (value) {
+                                if (value == 'add_child') {
+                                  _showAddChildDialog(context);
+                                } else if (value == 'add_unborn') {
+                                  _showAddUnbornChildDialog(context);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'add_child',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.child_care, size: 18, color: Colors.blue),
+                                      SizedBox(width: 12),
+                                      Text('Родившийся ребенок', style: TextStyle(fontSize: 14)),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'add_unborn',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.pregnant_woman, size: 18, color: Colors.pink),
+                                      SizedBox(width: 12),
+                                      Text('Ожидаемый ребенок', style: TextStyle(fontSize: 14)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -508,6 +697,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (context) => const AddChildDialog(),
+    );
+  }
+
+  void _showAddUnbornChildDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const AddChildDialog(initiallyUnborn: true),
     );
   }
 
@@ -1264,53 +1460,126 @@ class _FeatureCard extends StatelessWidget {
             end: Alignment.bottomRight,
             colors: feature.gradient,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: feature.gradient.first.withValues(alpha: 0.3),
-              blurRadius: 8,
+              color: feature.gradient.first.withValues(alpha: 0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+              spreadRadius: 0,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 10,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Stack(
           children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withValues(alpha: 0.1),
+                    Colors.white.withValues(alpha: 0.05),
+                  ],
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // Glassmorphism backdrop
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.1),
+                              Colors.white.withValues(alpha: 0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
                     feature.icon,
                     color: Colors.white,
-                    size: 48,
+                            size: 28,
+                          ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
+                        Flexible(
+                          child: Text(
                     feature.title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                              fontSize: 14,
                       fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black26,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
                     ),
                     textAlign: TextAlign.center,
-                    maxLines: 1,
+                            maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                          ),
                   ),
                   if (feature.subtitle != null) ...[
                     const SizedBox(height: 4),
-                    Text(
+                          Flexible(
+                            child: Text(
                       feature.subtitle!,
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.3,
                       ),
                       textAlign: TextAlign.center,
-                      maxLines: 2,
+                              maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                            ),
                     ),
                   ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1349,7 +1618,9 @@ class _FeatureCard extends StatelessWidget {
 
 // Диалог добавления ребенка
 class AddChildDialog extends StatefulWidget {
-  const AddChildDialog({super.key});
+  final bool initiallyUnborn;
+  
+  const AddChildDialog({super.key, this.initiallyUnborn = false});
 
   @override
   State<AddChildDialog> createState() => _AddChildDialogState();
@@ -1362,6 +1633,16 @@ class _AddChildDialogState extends State<AddChildDialog> {
   DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365 * 2));
   String _gender = 'male';
   bool _isLoading = false;
+  bool _isUnborn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isUnborn = widget.initiallyUnborn;
+    if (_isUnborn) {
+      _birthDate = DateTime.now().add(const Duration(days: 90)); // 3 месяца вперед по умолчанию
+    }
+  }
 
   @override
   void dispose() {
@@ -1412,7 +1693,7 @@ class _AddChildDialogState extends State<AddChildDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Добавить ребенка'),
+      title: Text(_isUnborn ? 'Добавить ожидаемого ребенка' : 'Добавить ребенка'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1426,19 +1707,40 @@ class _AddChildDialogState extends State<AddChildDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Дата рождения
+            // Переключатель: родился / не родился
+            SwitchListTile(
+              title: Text(_isUnborn ? 'Ожидается рождение' : 'Уже родился'),
+              subtitle: Text(_isUnborn ? 'Предполагаемая дата родов' : 'Дата рождения'),
+              value: _isUnborn,
+              onChanged: (value) {
+                setState(() {
+                  _isUnborn = value;
+                  if (_isUnborn) {
+                    _birthDate = DateTime.now().add(const Duration(days: 90)); // 3 месяца вперед по умолчанию
+                  } else {
+                    _birthDate = DateTime.now().subtract(const Duration(days: 365 * 2)); // 2 года назад по умолчанию
+                  }
+                });
+              },
+            ),
+
+            // Дата рождения/родов
             ListTile(
-              title: const Text('Дата рождения'),
+              title: Text(_isUnborn ? 'Предполагаемая дата родов' : 'Дата рождения'),
               subtitle: Text(
                 '${_birthDate.day}.${_birthDate.month}.${_birthDate.year}',
               ),
-              trailing: const Icon(Icons.calendar_today),
+              trailing: Icon(_isUnborn ? Icons.pregnant_woman : Icons.calendar_today),
               onTap: () async {
                 final date = await showDatePicker(
                   context: context,
                   initialDate: _birthDate,
-                  firstDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
-                  lastDate: DateTime.now(),
+                  firstDate: _isUnborn 
+                    ? DateTime.now() 
+                    : DateTime.now().subtract(const Duration(days: 365 * 18)),
+                  lastDate: _isUnborn 
+                    ? DateTime.now().add(const Duration(days: 365))
+                    : DateTime.now(),
                 );
                 if (date != null) {
                   setState(() => _birthDate = date);
@@ -1511,7 +1813,7 @@ class _AddChildDialogState extends State<AddChildDialog> {
             height: 20,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-              : const Text('Добавить'),
+              : Text(_isUnborn ? 'Добавить в ожидании' : 'Добавить'),
         ),
       ],
     );
@@ -1532,20 +1834,57 @@ class _CompactStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: size + 2, color: Theme.of(context).primaryColor),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: size,
-            fontWeight: FontWeight.w500,
-            color: Theme.of(context).textTheme.bodyMedium?.color,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            Theme.of(context).primaryColor.withValues(alpha: 0.05),
+          ],
         ),
-      ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon, 
+              size: size + 2, 
+              color: Theme.of(context).primaryColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: size,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

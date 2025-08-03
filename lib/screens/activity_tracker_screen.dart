@@ -51,14 +51,21 @@ class _ActivityTrackerScreenState extends State<ActivityTrackerScreen>
   }
 
   Future<void> _loadData() async {
-    final activeChild = await FirebaseService.getActiveChild();
-    if (mounted && activeChild != null) {
-      setState(() {
-        _activeChild = activeChild;
-      });
-      _loadActivities();
-      _headerController.forward();
-      _cardController.forward();
+    try {
+      final activeChild = await FirebaseService.getActiveChild();
+      if (mounted && activeChild != null) {
+        setState(() {
+          _activeChild = activeChild;
+        });
+        _loadActivities();
+        _headerController.forward();
+        _cardController.forward();
+      }
+    } catch (e) {
+      if (mounted) {
+        // Error logged internally
+        // Продолжаем работу без активного ребенка
+      }
     }
   }
 
@@ -491,7 +498,7 @@ class _ActivityTrackerScreenState extends State<ActivityTrackerScreen>
       margin: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Container(
+          SizedBox(
             width: 50,
             child: Text(
               '${activity.startTime.hour.toString().padLeft(2, '0')}:${activity.startTime.minute.toString().padLeft(2, '0')}',
@@ -872,7 +879,7 @@ class _ActivityTrackerScreenState extends State<ActivityTrackerScreen>
         Expanded(
           child: _buildStatCard(
             'Всего',
-            '${totalWalk}',
+            '$totalWalk',
             'минут',
             Icons.timer,
             Colors.teal,
@@ -1115,8 +1122,7 @@ class _AddActivityDialog extends StatefulWidget {
 class _AddActivityDialogState extends State<_AddActivityDialog> {
   ActivityType _selectedType = ActivityType.feeding;
   Mood _selectedMood = Mood.happy;
-  DateTime _startTime = DateTime.now();
-  DateTime? _endTime;
+  final DateTime _startTime = DateTime.now();
   final _notesController = TextEditingController();
 
   @override

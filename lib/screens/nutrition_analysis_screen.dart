@@ -6,7 +6,7 @@ import '../services/firebase_service.dart';
 class NutritionAnalysisScreen extends StatefulWidget {
   final String childId;
 
-  const NutritionAnalysisScreen({Key? key, required this.childId}) : super(key: key);
+  const NutritionAnalysisScreen({super.key, required this.childId});
 
   @override
   State<NutritionAnalysisScreen> createState() => _NutritionAnalysisScreenState();
@@ -21,7 +21,6 @@ class _NutritionAnalysisScreenState extends State<NutritionAnalysisScreen>
   
   DailyNutritionAnalysis? _todayAnalysis;
   List<DailyNutritionAnalysis> _weekAnalyses = [];
-  NutritionGoals? _nutritionGoals;
   Map<String, dynamic>? _weekStats;
   bool _isLoading = true;
 
@@ -53,8 +52,7 @@ class _NutritionAnalysisScreenState extends State<NutritionAnalysisScreen>
     
     try {
       // Загружаем цели питания
-      final goals = await FirebaseService.getCurrentNutritionGoals(widget.childId);
-      
+
       // Создаем анализ за сегодня
       final todayAnalysis = await FirebaseService.generateDailyNutritionAnalysis(
         widget.childId, 
@@ -79,7 +77,6 @@ class _NutritionAnalysisScreenState extends State<NutritionAnalysisScreen>
       });
       
       setState(() {
-        _nutritionGoals = goals;
         _todayAnalysis = todayAnalysis;
         _weekStats = weekStats;
         _isLoading = false;
@@ -250,7 +247,7 @@ class _NutritionAnalysisScreenState extends State<NutritionAnalysisScreen>
             Row(
               children: [
                 if (analysis.hasAchievements) ...[
-                  Icon(Icons.check_circle, color: Colors.green, size: 16),
+                  const Icon(Icons.check_circle, color: Colors.green, size: 16),
                   const SizedBox(width: 5),
                   Text(
                     '${analysis.achievements.length} достижений',
@@ -260,7 +257,7 @@ class _NutritionAnalysisScreenState extends State<NutritionAnalysisScreen>
                 if (analysis.hasAchievements && analysis.hasDeficiencies)
                   const SizedBox(width: 15),
                 if (analysis.hasDeficiencies) ...[
-                  Icon(Icons.warning, color: Colors.orange, size: 16),
+                  const Icon(Icons.warning, color: Colors.orange, size: 16),
                   const SizedBox(width: 5),
                   Text(
                     '${analysis.concerns.length} проблем',
@@ -390,24 +387,24 @@ class _NutritionAnalysisScreenState extends State<NutritionAnalysisScreen>
               ),
               _buildNutrientRow(
                 'Белки',
-                '${analysis.actualProtein.toStringAsFixed(1)}',
-                '${analysis.goals.targetProtein.toStringAsFixed(1)}',
+                analysis.actualProtein.toStringAsFixed(1),
+                analysis.goals.targetProtein.toStringAsFixed(1),
                 analysis.proteinCompletion,
                 'г',
                 Colors.red,
               ),
               _buildNutrientRow(
                 'Жиры',
-                '${analysis.actualFats.toStringAsFixed(1)}',
-                '${analysis.goals.targetFats.toStringAsFixed(1)}',
+                analysis.actualFats.toStringAsFixed(1),
+                analysis.goals.targetFats.toStringAsFixed(1),
                 analysis.goalCompletion['fats'] ?? 0,
                 'г',
                 Colors.yellow[700]!,
               ),
               _buildNutrientRow(
                 'Углеводы',
-                '${analysis.actualCarbs.toStringAsFixed(1)}',
-                '${analysis.goals.targetCarbs.toStringAsFixed(1)}',
+                analysis.actualCarbs.toStringAsFixed(1),
+                analysis.goals.targetCarbs.toStringAsFixed(1),
                 analysis.goalCompletion['carbs'] ?? 0,
                 'г',
                 Colors.blue,
@@ -420,32 +417,32 @@ class _NutritionAnalysisScreenState extends State<NutritionAnalysisScreen>
             _buildNutrientSection('Витамины и минералы', [
               _buildNutrientRow(
                 'Витамин C',
-                '${analysis.actualVitaminC.toStringAsFixed(1)}',
-                '${analysis.goals.targetVitaminC.toStringAsFixed(1)}',
+                analysis.actualVitaminC.toStringAsFixed(1),
+                analysis.goals.targetVitaminC.toStringAsFixed(1),
                 analysis.vitaminCCompletion,
                 'мг',
                 Colors.green,
               ),
               _buildNutrientRow(
                 'Витамин D',
-                '${analysis.actualVitaminD.toStringAsFixed(1)}',
-                '${analysis.goals.targetVitaminD.toStringAsFixed(1)}',
+                analysis.actualVitaminD.toStringAsFixed(1),
+                analysis.goals.targetVitaminD.toStringAsFixed(1),
                 analysis.goalCompletion['vitaminD'] ?? 0,
                 'мкг',
                 Colors.purple,
               ),
               _buildNutrientRow(
                 'Кальций',
-                '${analysis.actualCalcium.toStringAsFixed(1)}',
-                '${analysis.goals.targetCalcium.toStringAsFixed(1)}',
+                analysis.actualCalcium.toStringAsFixed(1),
+                analysis.goals.targetCalcium.toStringAsFixed(1),
                 analysis.goalCompletion['calcium'] ?? 0,
                 'мг',
                 Colors.indigo,
               ),
               _buildNutrientRow(
                 'Железо',
-                '${analysis.actualIron.toStringAsFixed(1)}',
-                '${analysis.goals.targetIron.toStringAsFixed(1)}',
+                analysis.actualIron.toStringAsFixed(1),
+                analysis.goals.targetIron.toStringAsFixed(1),
                 analysis.goalCompletion['iron'] ?? 0,
                 'мг',
                 Colors.brown,

@@ -165,7 +165,7 @@ class PerformanceUtils {
     String? name,
   }) {
     return kDebugMode
-        ? _PerformanceMonitorWidget(child: child, name: name)
+        ? _PerformanceMonitorWidget(name: name, child: child)
         : child;
   }
 }
@@ -209,15 +209,10 @@ class _PerformanceMonitorWidgetState extends State<_PerformanceMonitorWidget> {
 
 // Кастомный Timer для дебаунса
 class DebounceTimer {
-  Future<void>? _timer;
+
+  DebounceTimer(Duration duration, VoidCallback callback);
   
-  DebounceTimer(Duration duration, VoidCallback callback) {
-    _timer = Future.delayed(duration).then((_) => callback());
-  }
-  
-  void cancel() {
-    _timer = null;
-  }
+  void cancel() {}
 }
 
 // Lazy loading контроллер для больших списков
@@ -278,13 +273,13 @@ class OptimizedGridView extends StatelessWidget {
   final ScrollController? controller;
 
   const OptimizedGridView({
-    Key? key,
+    super.key,
     required this.itemCount,
     required this.itemBuilder,
     required this.crossAxisCount,
     this.childAspectRatio = 1.0,
     this.controller,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

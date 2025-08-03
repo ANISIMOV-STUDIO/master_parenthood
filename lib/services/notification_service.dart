@@ -2,7 +2,6 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firebase_service.dart';
 
 class NotificationService {
@@ -164,14 +163,6 @@ class NotificationService {
   }
 
   // Определение возрастной группы
-  static int _getAgeGroup(int ageInMonths) {
-    if (ageInMonths < 6) return 0;      // 0-6 месяцев
-    if (ageInMonths < 12) return 1;     // 6-12 месяцев
-    if (ageInMonths < 24) return 2;     // 1-2 года
-    if (ageInMonths < 36) return 3;     // 2-3 года
-    if (ageInMonths < 60) return 4;     // 3-5 лет
-    return 5;                           // 5+ лет
-  }
 
   // Отправка локального уведомления
   static Future<void> scheduleLocalNotification({
@@ -244,82 +235,12 @@ class NotificationService {
   }
 
   // Напоминание о записи в дневник
-  static Future<void> _scheduleDiaryReminder(ChildProfile child) async {
-    final now = DateTime.now();
-    final reminderTime = DateTime(now.year, now.month, now.day, 20, 0); // 20:00
-    
-    if (reminderTime.isAfter(now)) {
-      await scheduleLocalNotification(
-        title: 'Запись в дневник 📝',
-        body: 'Не забудьте записать сегодняшние достижения ${child.name}!',
-        scheduledTime: reminderTime,
-        data: {'screen': 'diary', 'childId': child.id},
-      );
-    }
-  }
 
   // Советы по развитию
-  static Future<void> _scheduleDevelopmentTips(ChildProfile child) async {
-    final now = DateTime.now();
-    final tipTime = DateTime(now.year, now.month, now.day, 10, 0); // 10:00
-    
-    if (tipTime.isAfter(now)) {
-      final tips = _getDevelopmentTips(child.ageInMonths);
-      if (tips.isNotEmpty) {
-        final randomTip = tips[DateTime.now().millisecond % tips.length];
-        
-        await scheduleLocalNotification(
-          title: 'Совет по развитию 💡',
-          body: randomTip,
-          scheduledTime: tipTime,
-          data: {'screen': 'profile', 'childId': child.id},
-        );
-      }
-    }
-  }
 
   // Напоминания о измерениях
-  static Future<void> _scheduleMeasurementReminders(ChildProfile child) async {
-    // Напоминание раз в месяц
-    final now = DateTime.now();
-    final measurementTime = DateTime(now.year, now.month + 1, 1, 9, 0); // 1 число следующего месяца в 9:00
-    
-    await scheduleLocalNotification(
-      title: 'Время измерений 📏',
-      body: 'Пора измерить рост и вес ${child.name}!',
-      scheduledTime: measurementTime,
-      data: {'screen': 'profile', 'childId': child.id},
-    );
-  }
 
   // Получение советов по развитию в зависимости от возраста
-  static List<String> _getDevelopmentTips(int ageInMonths) {
-    if (ageInMonths < 6) {
-      return [
-        'Говорите с малышом как можно больше - это развивает речь',
-        'Выкладывайте ребенка на животик для укрепления мышц',
-        'Включайте классическую музыку для развития слуха',
-      ];
-    } else if (ageInMonths < 12) {
-      return [
-        'Играйте в "ку-ку" - это развивает понимание постоянства объекта',
-        'Предлагайте разные текстуры для тактильного развития',
-        'Читайте книжки с яркими картинками',
-      ];
-    } else if (ageInMonths < 24) {
-      return [
-        'Поощряйте самостоятельное исследование безопасной среды',
-        'Играйте в простые сортировочные игры',
-        'Называйте предметы и действия в течение дня',
-      ];
-    } else {
-      return [
-        'Занимайтесь творчеством: рисование, лепка, конструирование',
-        'Читайте сказки и обсуждайте прочитанное',
-        'Поощряйте помощь по дому - это развивает ответственность',
-      ];
-    }
-  }
 }
 
 // Обработчик фоновых сообщений

@@ -18,13 +18,11 @@ class _FirstAidGuideScreenState extends State<FirstAidGuideScreen>
   late TabController _tabController;
   List<FirstAidGuide> _allGuides = [];
   bool _isLoading = true;
-  EmergencyType? _selectedType;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _selectedType = widget.filterType;
     _loadGuides();
   }
 

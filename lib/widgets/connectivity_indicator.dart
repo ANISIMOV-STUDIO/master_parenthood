@@ -19,16 +19,16 @@ class ConnectivityIndicator extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8),
       color: Colors.red.shade700,
-      child: Row(
+      child: const Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
+          Icon(
             Icons.wifi_off,
             color: Colors.white,
             size: 16,
           ),
-          const SizedBox(width: 8),
-          const Text(
+          SizedBox(width: 8),
+          Text(
             'Нет подключения к интернету',
             style: TextStyle(
               color: Colors.white,

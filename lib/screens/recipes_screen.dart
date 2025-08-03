@@ -6,7 +6,7 @@ import '../data/recipe_database.dart';
 class RecipesScreen extends StatefulWidget {
   final String childId;
 
-  const RecipesScreen({Key? key, required this.childId}) : super(key: key);
+  const RecipesScreen({super.key, required this.childId});
 
   @override
   State<RecipesScreen> createState() => _RecipesScreenState();
@@ -610,7 +610,7 @@ class _RecipesScreenState extends State<RecipesScreen>
                   const Spacer(),
                   Row(
                     children: [
-                      Icon(Icons.star, color: Colors.amber, size: 16),
+                      const Icon(Icons.star, color: Colors.amber, size: 16),
                       const SizedBox(width: 4),
                       Text(
                         recipe.formattedRating,

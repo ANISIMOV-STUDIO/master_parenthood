@@ -5,7 +5,7 @@ import '../services/firebase_service.dart';
 class AllergyTrackerScreen extends StatefulWidget {
   final String childId;
 
-  const AllergyTrackerScreen({Key? key, required this.childId}) : super(key: key);
+  const AllergyTrackerScreen({super.key, required this.childId});
 
   @override
   State<AllergyTrackerScreen> createState() => _AllergyTrackerScreenState();
@@ -779,8 +779,8 @@ class _AddAllergyDialogState extends State<_AddAllergyDialog> {
   final _notesController = TextEditingController();
   
   AllergyReactionType _reactionType = AllergyReactionType.mild;
-  List<String> _symptoms = [];
-  DateTime _firstReactionDate = DateTime.now();
+  final List<String> _symptoms = [];
+  final DateTime _firstReactionDate = DateTime.now();
   
   final List<String> _commonSymptoms = [
     'Сыпь',
