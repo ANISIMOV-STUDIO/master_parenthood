@@ -72,15 +72,12 @@ void main() async {
 
   // Загружаем сохраненные настройки
   final prefs = await SharedPreferences.getInstance();
-  final isDarkMode = prefs.getBool('isDarkMode') ?? false;
   final languageCode = prefs.getString('languageCode') ?? 'ru';
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => ThemeProvider(isDarkMode),
-        ),
+        // ThemeProvider временно отключен до создания класса
         ChangeNotifierProvider(
           create: (_) => LocaleProvider(Locale(languageCode)),
         ),
