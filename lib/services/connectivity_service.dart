@@ -15,6 +15,8 @@ class ConnectivityService extends ChangeNotifier {
   
   bool get isOffline => _connectionStatus == ConnectivityResult.none;
   
+  bool get hasInternet => _connectionStatus != ConnectivityResult.none;
+  
   ConnectivityService() {
     _initConnectivity();
   }

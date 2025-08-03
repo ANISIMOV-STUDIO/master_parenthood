@@ -18,9 +18,14 @@ dependencies:
   # UI/UX
   flutter_animate: ^4.2.0
   fl_chart: ^0.64.0
+  table_calendar: ^3.1.2
+  url_launcher: ^6.1.14
 
   # Storage
   shared_preferences: ^2.2.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.1
 
   # Networking
   dio: ^5.3.2
@@ -31,6 +36,7 @@ dependencies:
   firebase_auth: ^4.16.0
   cloud_firestore: ^4.17.5
   firebase_storage: ^11.6.0
+  firebase_messaging: ^14.7.10
   google_sign_in: ^6.1.5
 
   # Utilities
@@ -47,11 +53,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  integration_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
   generate: true
 
-  # Добавьте ассеты для иконок социальных сетей (если будете использовать)
-  # assets:
-  #   - assets/icons/
+  assets:
+    - assets/icons/
+    - assets/images/
+    - assets/illustrations/
+    - assets/splash/

@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'dart:io';
 import '../l10n/app_localizations.dart';
 import '../services/firebase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChildProfileScreen extends StatefulWidget {
   const ChildProfileScreen({super.key});
@@ -18,32 +19,93 @@ class ChildProfileScreen extends StatefulWidget {
 
 class _ChildProfileScreenState extends State<ChildProfileScreen>
     with TickerProviderStateMixin {
-  late AnimationController _petController;
-  late AnimationController _statsController;
+  late AnimationController _headerController;
+  late AnimationController _chartController;
+  late TabController _tabController;
 
   ChildProfile? _activeChild;
   final ImagePicker _picker = ImagePicker();
   bool _isUploadingPhoto = false;
+  
+  // Данные для графиков
+  List<FlSpot> _heightData = [];
+  List<FlSpot> _weightData = [];
+  
+  // Вехи развития
+  final List<Milestone> _milestones = [
+    Milestone('Первая улыбка', 'Социальное развитие', 0, 2, false),
+    Milestone('Держит голову', 'Физическое развитие', 1, 4, false),
+    Milestone('Переворачивается', 'Моторика', 3, 6, false),
+    Milestone('Сидит без поддержки', 'Физическое развитие', 5, 8, false),
+    Milestone('Первые слова', 'Речь', 8, 15, false),
+    Milestone('Ходит самостоятельно', 'Моторика', 9, 18, false),
+    Milestone('Говорит предложения', 'Речь', 18, 30, false),
+    Milestone('Контроль мочевого пузыря', 'Самостоятельность', 24, 36, false),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _petController = AnimationController(
-      duration: const Duration(seconds: 3),
+    _headerController = AnimationController(
+      duration: const Duration(milliseconds: 800),
       vsync: this,
-    )..repeat(reverse: true);
-
-    _statsController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+    );
+    
+    _chartController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
-    )..forward();
+    );
+    
+    _tabController = TabController(length: 3, vsync: this);
+    
+    _loadChildData();
+    _generateSampleData();
   }
 
   @override
   void dispose() {
-    _petController.dispose();
-    _statsController.dispose();
+    _headerController.dispose();
+    _chartController.dispose();
+    _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadChildData() async {
+    final activeChild = await FirebaseService.getActiveChild();
+    if (mounted) {
+      setState(() {
+        _activeChild = activeChild;
+      });
+      _headerController.forward();
+      _chartController.forward();
+      
+      if (activeChild != null) {
+        _updateMilestonesForAge(activeChild.ageInMonths);
+      }
+    }
+  }
+
+  void _generateSampleData() {
+    // Генерируем примерные данные роста и веса
+    final now = DateTime.now();
+    for (int i = 0; i <= 24; i++) {
+      final date = now.subtract(Duration(days: 30 * (24 - i)));
+      final ageInMonths = i;
+      
+      // Примерные данные роста (см)
+      final height = 50 + (ageInMonths * 2.5) + (math.Random().nextDouble() * 2 - 1);
+      _heightData.add(FlSpot(ageInMonths.toDouble(), height));
+      
+      // Примерные данные веса (кг)
+      final weight = 3.5 + (ageInMonths * 0.6) + (math.Random().nextDouble() * 0.5 - 0.25);
+      _weightData.add(FlSpot(ageInMonths.toDouble(), weight));
+    }
+  }
+
+  void _updateMilestonesForAge(int ageInMonths) {
+    for (var milestone in _milestones) {
+      milestone.isAchieved = ageInMonths >= milestone.minAge;
+    }
   }
 
   Future<void> _pickAndUploadPhoto() async {
@@ -51,11 +113,10 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
 
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 85, // Сжатие изображения для уменьшения размера
+      imageQuality: 85,
     );
     if (image == null) return;
 
-    // Проверка размера файла
     final file = File(image.path);
     final fileSizeInBytes = await file.length();
     final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
@@ -92,10 +153,7 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Фото обновлено')),
           );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Не удалось загрузить фото')),
-          );
+          _loadChildData(); // Перезагружаем данные
         }
       }
     } catch (e) {
@@ -113,408 +171,777 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-
     return StreamBuilder<List<ChildProfile>>(
       stream: FirebaseService.getChildrenStream(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.child_care, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Добавьте первого ребенка',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _showAddChildDialog(context),
-                    child: const Text('Добавить ребенка'),
-                  ),
-                ],
-              ),
-            ),
-          );
+          return _buildNoChildrenState();
         }
 
         final children = snapshot.data!;
         _activeChild ??= children.first;
 
         return Scaffold(
-          body: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // Красивый AppBar с фото
-              SliverAppBar(
-                expandedHeight: 250,
-                pinned: true,
-                stretch: true,
-                flexibleSpace: FlexibleSpaceBar(
-                  title: Text(
-                    _activeChild!.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      shadows: [Shadow(blurRadius: 10, color: Colors.black45)],
-                    ),
-                  ),
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Фото ребенка или градиент
-                      if (_activeChild!.photoURL != null)
-                        CachedNetworkImage(
-                          imageUrl: _activeChild!.photoURL!,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Theme.of(context).primaryColor,
-                                  Theme.of(context).primaryColor.withBlue(200),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Theme.of(context).primaryColor,
-                                Theme.of(context).primaryColor.withBlue(200),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                      // Затемнение для читаемости текста
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.7),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Кнопка добавления/изменения фото
-                      Positioned(
-                        bottom: 16,
-                        right: 16,
-                        child: FloatingActionButton.small(
-                          onPressed:
-                              _isUploadingPhoto ? null : _pickAndUploadPhoto,
-                          child: _isUploadingPhoto
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.camera_alt),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                actions: [
-                  // Выбор ребенка, если их несколько
-                  if (children.length > 1)
-                    PopupMenuButton<ChildProfile>(
-                      initialValue: _activeChild,
-                      onSelected: (child) {
-                        setState(() => _activeChild = child);
-                      },
-                      itemBuilder: (context) => children
-                          .map((child) => PopupMenuItem(
-                                value: child,
-                                child: Text(child.name),
-                              ))
-                          .toList(),
-                      child: const Padding(
-                        padding: EdgeInsets.all(8.0),
-                        child: Icon(Icons.switch_account),
-                      ),
-                    ),
-
-                  // Редактирование
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () =>
-                        _showEditChildDialog(context, _activeChild!),
-                  ),
-                ],
-              ),
-
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Возраст и основная информация
-                      Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 10),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.purple.shade400,
-                                    Colors.pink.shade400
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(25),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.purple.withValues(alpha: 0.3),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                _activeChild!.ageFormatted,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ).animate().scale(delay: 200.ms, duration: 500.ms),
-
-                            const SizedBox(height: 16),
-
-                            // Пол
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _activeChild!.gender == 'male'
-                                      ? Icons.male
-                                      : Icons.female,
-                                  color: _activeChild!.gender == 'male'
-                                      ? Colors.blue
-                                      : Colors.pink,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  _activeChild!.gender == 'male'
-                                      ? 'Мальчик'
-                                      : 'Девочка',
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      // Виртуальный питомец
-                      _buildVirtualPetSection(context, loc),
-
-                      const SizedBox(height: 30),
-
-                      // График роста
-                      _buildGrowthChart(context, loc),
-
-                      const SizedBox(height: 30),
-
-                      // Вехи развития
-                      _buildMilestonesSection(context, loc),
-
-                      const SizedBox(height: 30),
-
-                      // Статистика
-                      _buildQuickStats(context, loc),
-
-                      const SizedBox(height: 30),
-
-                      // История сказок
-                      _buildStoriesSection(context, loc),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          body: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                _buildSliverAppBar(children),
+              ];
+            },
+            body: _buildTabContent(),
           ),
         );
       },
     );
   }
 
-  Widget _buildVirtualPetSection(BuildContext context, AppLocalizations loc) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.purple.shade50,
-            Colors.pink.shade50,
+  Widget _buildNoChildrenState() {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Профиль ребенка'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.child_care,
+              size: 100,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Нет добавленных детей',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: Colors.grey.shade600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Добавьте профиль ребенка\nчтобы отслеживать развитие',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Colors.grey.shade500,
+              ),
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () => _showAddChildDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить ребенка'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+              ),
+            ),
+          ],
+        ).animate().fadeIn().slideY(begin: 0.3),
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar(List<ChildProfile> children) {
+    return SliverAppBar(
+      expandedHeight: 280,
+      floating: false,
+      pinned: true,
+      backgroundColor: Theme.of(context).primaryColor,
+      foregroundColor: Colors.white,
+      actions: [
+        if (children.length > 1)
+          PopupMenuButton<ChildProfile>(
+            initialValue: _activeChild,
+            onSelected: (child) {
+              setState(() {
+                _activeChild = child;
+                _updateMilestonesForAge(child.ageInMonths);
+              });
+            },
+            itemBuilder: (context) => children
+                .map((child) => PopupMenuItem(
+                      value: child,
+                      child: Text(child.name),
+                    ))
+                .toList(),
+            child: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Icon(Icons.switch_account, color: Colors.white),
+            ),
+          ),
+        IconButton(
+          icon: const Icon(Icons.edit, color: Colors.white),
+          onPressed: () => _showEditChildDialog(),
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).primaryColor,
+                Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                Colors.purple.shade300,
+              ],
+            ),
+          ),
+          child: _activeChild != null ? _buildHeaderContent() : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderContent() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            const SizedBox(height: 60), // Место для AppBar
+            
+            // Фото ребенка
+            Hero(
+              tag: 'child_photo_${_activeChild!.id}',
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    ClipOval(
+                      child: _activeChild!.photoURL != null
+                          ? CachedNetworkImage(
+                              imageUrl: _activeChild!.photoURL!,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.child_care, size: 60),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.child_care, size: 60),
+                              ),
+                            )
+                          : Container(
+                              color: Colors.white,
+                              child: Icon(
+                                Icons.child_care,
+                                size: 60,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                            ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: _isUploadingPhoto ? null : _pickAndUploadPhoto,
+                          icon: _isUploadingPhoto
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : Icon(
+                                  Icons.camera_alt,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                          iconSize: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ).animate(controller: _headerController).scale().fadeIn(),
+            
+            const SizedBox(height: 16),
+            
+            // Имя и возраст
+            Column(
+              children: [
+                Text(
+                  _activeChild!.name,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                        blurRadius: 10,
+                        color: Colors.black26,
+                      ),
+                    ],
+                  ),
+                ).animate(controller: _headerController).fadeIn(delay: 200.ms).slideY(begin: 0.3),
+                
+                const SizedBox(height: 8),
+                
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    _activeChild!.ageFormatted,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ).animate(controller: _headerController).fadeIn(delay: 400.ms).scale(begin: const Offset(0.8, 0.8)),
+              ],
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.purple.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
       ),
+    );
+  }
+
+  Widget _buildTabContent() {
+    return Column(
+      children: [
+        Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: TabBar(
+            controller: _tabController,
+            labelColor: Theme.of(context).primaryColor,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Theme.of(context).primaryColor,
+            indicatorWeight: 3,
+            tabs: const [
+              Tab(icon: Icon(Icons.show_chart), text: 'Рост'),
+              Tab(icon: Icon(Icons.timeline), text: 'Развитие'),
+              Tab(icon: Icon(Icons.info_outline), text: 'Данные'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildGrowthTab(),
+              _buildMilestonesTab(),
+              _buildDataTab(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGrowthTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Текущие показатели
           Row(
             children: [
-              const Icon(Icons.pets, color: Colors.purple),
-              const SizedBox(width: 8),
-              Text(
-                loc.virtualPet,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              Expanded(
+                child: _buildStatCard(
+                  'Рост',
+                  '${_activeChild?.height.toStringAsFixed(0)} см',
+                  Icons.height,
+                  Colors.blue,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  'Вес',
+                  '${_activeChild?.weight.toStringAsFixed(1)} кг',
+                  Icons.monitor_weight,
+                  Colors.green,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              // Анимация питомца
-              AnimatedBuilder(
-                animation: _petController,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(
-                        0, math.sin(_petController.value * math.pi) * 10),
-                    child: Transform.scale(
-                      scale:
-                          1.0 + math.sin(_petController.value * math.pi) * 0.1,
-                      child: Text(
-                        _activeChild!.petType,
-                        style: const TextStyle(fontSize: 80),
-                      ),
+          
+          const SizedBox(height: 24),
+          
+          // График роста
+          Text(
+            'График роста',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          Container(
+            height: 300,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 10,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 3,
+                      getTitlesWidget: (value, meta) {
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          child: Text(
+                            '${value.toInt()}м',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w300,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-              const SizedBox(width: 20),
-              // Статистика питомца
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _activeChild!.petName,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          onPressed: () => _showEditPetDialog(context),
-                        ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 10,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          child: Text(
+                            '${value.toInt()}',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w300,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _heightData,
+                    isCurved: true,
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.blue.withValues(alpha: 0.8),
+                        Colors.blue.withValues(alpha: 0.3),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _buildPetStat(loc.happiness,
-                        _activeChild!.petStats['happiness']!, Colors.yellow),
-                    const SizedBox(height: 8),
-                    _buildPetStat(loc.energy, _activeChild!.petStats['energy']!,
-                        Colors.pink),
-                    const SizedBox(height: 8),
-                    _buildPetStat(loc.knowledge,
-                        _activeChild!.petStats['knowledge']!, Colors.blue),
-                  ],
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.blue.withValues(alpha: 0.2),
+                          Colors.blue.withValues(alpha: 0.05),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ).animate(controller: _chartController).fadeIn().slideY(begin: 0.3),
+          
+          const SizedBox(height: 24),
+          
+          // График веса
+          Text(
+            'График веса',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          Container(
+            height: 300,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 2,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 3,
+                      getTitlesWidget: (value, meta) {
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          child: Text(
+                            '${value.toInt()}м',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w300,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 2,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          child: Text(
+                            '${value.toStringAsFixed(0)}кг',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w300,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _weightData,
+                    isCurved: true,
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.green.withValues(alpha: 0.8),
+                        Colors.green.withValues(alpha: 0.3),
+                      ],
+                    ),
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.green.withValues(alpha: 0.2),
+                          Colors.green.withValues(alpha: 0.05),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ).animate(controller: _chartController).fadeIn(delay: 200.ms).slideY(begin: 0.3),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMilestonesTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Вехи развития',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _showAddMilestoneDialog,
+                icon: const Icon(Icons.add),
+                label: const Text('Добавить'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          Text(
+            'Отметьте достижения вашего ребенка',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _milestones.length,
+            itemBuilder: (context, index) {
+              final milestone = _milestones[index];
+              return _buildMilestoneCard(milestone, index);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMilestoneCard(Milestone milestone, int index) {
+    final isInRange = _activeChild != null && 
+        _activeChild!.ageInMonths >= milestone.minAge && 
+        _activeChild!.ageInMonths <= milestone.maxAge;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: milestone.isAchieved 
+            ? Colors.green.withValues(alpha: 0.1)
+            : isInRange 
+                ? Colors.orange.withValues(alpha: 0.1)
+                : Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: milestone.isAchieved 
+              ? Colors.green.withValues(alpha: 0.3)
+              : isInRange 
+                  ? Colors.orange.withValues(alpha: 0.3)
+                  : Colors.grey.withValues(alpha: 0.2),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        leading: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: milestone.isAchieved 
+                ? Colors.green
+                : isInRange 
+                    ? Colors.orange
+                    : Colors.grey.shade300,
+          ),
+          child: Icon(
+            milestone.isAchieved 
+                ? Icons.check
+                : isInRange 
+                    ? Icons.schedule
+                    : Icons.radio_button_unchecked,
+            color: milestone.isAchieved || isInRange ? Colors.white : Colors.grey.shade600,
+          ),
+        ),
+        title: Text(
+          milestone.title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: milestone.isAchieved ? Colors.green.shade700 : null,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(milestone.category),
+            const SizedBox(height: 4),
+            Text(
+              '${milestone.minAge}-${milestone.maxAge} месяцев',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        trailing: Switch(
+          value: milestone.isAchieved,
+          onChanged: (value) {
+            setState(() {
+              milestone.isAchieved = value;
+            });
+            // Здесь можно сохранить в Firebase
+          },
+        ),
+      ),
+    ).animate().fadeIn(delay: (index * 100).ms).slideX(begin: 0.3);
+  }
+
+  Widget _buildDataTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Информация о ребенке',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          _buildInfoSection('Основные данные', [
+            _buildInfoRow('Имя', _activeChild?.name ?? ''),
+            _buildInfoRow('Пол', _activeChild?.gender == 'male' ? 'Мальчик' : 'Девочка'),
+            _buildInfoRow('Дата рождения', _formatDate(_activeChild?.birthDate)),
+            _buildInfoRow('Возраст', _activeChild?.ageFormatted ?? ''),
+          ]),
+          
+          const SizedBox(height: 24),
+          
+          _buildInfoSection('Физические показатели', [
+            _buildInfoRow('Рост', '${_activeChild?.height.toStringAsFixed(0)} см'),
+            _buildInfoRow('Вес', '${_activeChild?.weight.toStringAsFixed(1)} кг'),
+            _buildInfoRow('ИМТ', _calculateBMI()),
+          ]),
+          
+          const SizedBox(height: 24),
+          
+          _buildInfoSection('Развитие', [
+            _buildInfoRow('Словарный запас', '${_activeChild?.vocabularySize ?? 0} слов'),
+            _buildInfoRow('Достижений выполнено', '${_milestones.where((m) => m.isAchieved).length}/${_milestones.length}'),
+          ]),
+          
+          const SizedBox(height: 32),
+          
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _showAddMeasurementDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Добавить измерение'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _showEditChildDialog,
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Редактировать'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 400.ms).slideX(begin: 0.1);
-  }
-
-  Widget _buildPetStat(String label, int value, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-            Text(
-              '$value%',
-              style: TextStyle(
-                  fontSize: 12, color: color, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        AnimatedBuilder(
-          animation: _statsController,
-          builder: (context, child) {
-            return LinearProgressIndicator(
-              value: (value / 100) * _statsController.value,
-              backgroundColor: color.withValues(alpha: 0.2),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(3),
-            );
-          },
-        ),
-      ],
     );
   }
 
-  Widget _buildGrowthChart(BuildContext context, AppLocalizations loc) {
-    // Здесь можно добавить реальные данные из Firestore
-    const growthData = [
-      FlSpot(0, 80),
-      FlSpot(1, 82),
-      FlSpot(2, 84),
-      FlSpot(3, 86),
-      FlSpot(4, 87),
-      FlSpot(5, 89),
-    ];
-
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
-      height: 200,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -524,90 +951,42 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            loc.growthChart,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: LineChart(
-              LineChartData(
-                gridData: const FlGridData(show: false),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: growthData,
-                    isCurved: true,
-                    gradient: LinearGradient(
-                      colors: [Colors.purple.shade400, Colors.pink.shade400],
-                    ),
-                    barWidth: 4,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: true),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.purple.withValues(alpha: 0.2),
-                          Colors.pink.withValues(alpha: 0.2),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
             ),
           ),
         ],
       ),
-    ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.1);
-  }
-
-  Widget _buildMilestonesSection(BuildContext context, AppLocalizations loc) {
-    // Вехи развития можно загружать из базы данных или определять по возрасту
-    final milestones = [
-      MilestoneData('Говорит фразы из 2-3 слов', 85, Colors.green),
-      MilestoneData('Самостоятельно ест ложкой', 70, Colors.blue),
-      MilestoneData('Различает основные цвета', 60, Colors.purple),
-      MilestoneData('Прыгает на двух ногах', 45, Colors.orange),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.flag, color: Colors.orange),
-            const SizedBox(width: 8),
-            Text(
-              loc.milestones,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        ...milestones.asMap().entries.map((entry) {
-          final index = entry.key;
-          final milestone = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _buildMilestoneItem(milestone, index),
-          );
-        }),
-      ],
     );
   }
 
-  Widget _buildMilestoneItem(MilestoneData milestone, int index) {
+  Widget _buildInfoSection(String title, List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -622,728 +1001,954 @@ class _ChildProfileScreenState extends State<ChildProfileScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  milestone.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Text(
-                '${milestone.progress}%',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: milestone.color,
-                ),
-              ),
-            ],
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: milestone.progress / 100,
-              backgroundColor: milestone.color.withValues(alpha: 0.2),
-              valueColor: AlwaysStoppedAnimation<Color>(milestone.color),
-              minHeight: 8,
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
-    ).animate().fadeIn(delay: (800 + index * 150).ms).slideX(begin: 0.2);
+    );
   }
 
-  Widget _buildQuickStats(BuildContext context, AppLocalizations loc) {
-    final stats = [
-      StatItem(Icons.straighten, '${_activeChild!.height} ${loc.heightCm}',
-          loc.heightCm, Colors.purple),
-      StatItem(Icons.monitor_weight, '${_activeChild!.weight} ${loc.weightKg}',
-          loc.weightKg, Colors.pink),
-      StatItem(Icons.calendar_today, '${_activeChild!.ageInMonths} мес.',
-          'Возраст', Colors.blue),
-      StatItem(Icons.celebration, '${_activeChild!.petStats['happiness']}',
-          'Счастье', Colors.green),
-    ];
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.5,
+  String _calculateBMI() {
+    if (_activeChild == null) return '';
+    final heightInM = _activeChild!.height / 100;
+    final bmi = _activeChild!.weight / (heightInM * heightInM);
+    return bmi.toStringAsFixed(1);
+  }
+
+  void _showAddChildDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddChildDialog(
+        onSave: () {
+          _loadChildData(); // Перезагружаем данные после добавления
+        },
       ),
-      itemCount: stats.length,
-      itemBuilder: (context, index) {
-        final stat = stats[index];
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: stat.color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: stat.color.withValues(alpha: 0.3),
-              width: 2,
+    );
+  }
+
+  void _showEditChildDialog() {
+    if (_activeChild == null) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _EditChildDialog(
+        child: _activeChild!,
+        onSave: () {
+          _loadChildData(); // Перезагружаем данные после редактирования
+        },
+      ),
+    );
+  }
+
+  void _showAddMilestoneDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddMilestoneDialog(
+        onSave: (milestone) {
+          setState(() {
+            _milestones.add(milestone);
+          });
+        },
+      ),
+    );
+  }
+
+  void _showAddMeasurementDialog() {
+    if (_activeChild == null) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddMeasurementDialog(
+        childId: _activeChild!.id,
+        currentHeight: _activeChild!.height,
+        currentWeight: _activeChild!.weight,
+        onSave: () {
+          _loadChildData(); // Перезагружаем данные после добавления измерения
+        },
+      ),
+    );
+  }
+}
+
+// Модель для вех развития
+class Milestone {
+  final String title;
+  final String category;
+  final int minAge; // в месяцах
+  final int maxAge; // в месяцах
+  bool isAchieved;
+
+  Milestone(this.title, this.category, this.minAge, this.maxAge, this.isAchieved);
+}
+
+// Диалог добавления ребенка
+class _AddChildDialog extends StatefulWidget {
+  final VoidCallback onSave;
+
+  const _AddChildDialog({required this.onSave});
+
+  @override
+  State<_AddChildDialog> createState() => _AddChildDialogState();
+}
+
+class _AddChildDialogState extends State<_AddChildDialog> {
+  final _nameController = TextEditingController();
+  final _heightController = TextEditingController();
+  final _weightController = TextEditingController();
+  String _selectedGender = 'male';
+  DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365));
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 20),
+          Row(
             children: [
-              Icon(stat.icon, color: stat.color, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                stat.value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: stat.color,
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.purple, Colors.pink],
+                  ),
+                  borderRadius: BorderRadius.circular(15),
                 ),
+                child: const Icon(Icons.child_care, color: Colors.white),
               ),
-              Text(
-                stat.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: stat.color.withValues(alpha: 0.8),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Добавить ребенка',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
-        )
-            .animate()
-            .fadeIn(delay: (800 + index * 100).ms)
-            .scale(begin: const Offset(0.8, 0.8));
-      },
-    );
-  }
-
-  Widget _buildStoriesSection(BuildContext context, AppLocalizations loc) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.auto_stories, color: Colors.purple),
-            const SizedBox(width: 8),
-            Text(
-              'История сказок',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Имя ребенка',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person),
             ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        StreamBuilder<List<StoryData>>(
-          stream: FirebaseService.getStoriesStream(_activeChild!.id),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Center(
-                  child: Text('Еще нет созданных сказок'),
-                ),
-              );
-            }
-
-            return SizedBox(
-              height: 150,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: snapshot.data!.length,
-                itemBuilder: (context, index) {
-                  final story = snapshot.data![index];
-                  return Container(
-                    width: 200,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.purple.shade100,
-                          Colors.pink.shade100,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          story.theme,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: Text(
-                            story.story,
-                            style: const TextStyle(fontSize: 14),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _formatDate(story.createdAt),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                      .animate()
-                      .fadeIn(delay: (100 * index).ms)
-                      .slideX(begin: 0.2);
-                },
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedGender,
+            decoration: const InputDecoration(
+              labelText: 'Пол',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.wc),
+            ),
+            onChanged: (value) {
+              setState(() {
+                _selectedGender = value!;
+              });
+            },
+            items: const [
+              DropdownMenuItem(
+                value: 'male',
+                child: Text('Мальчик'),
               ),
-            );
-          },
-        ),
-      ],
+              DropdownMenuItem(
+                value: 'female',
+                child: Text('Девочка'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _birthDate,
+                firstDate: DateTime.now().subtract(const Duration(days: 365 * 10)),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) {
+                setState(() {
+                  _birthDate = picked;
+                });
+              }
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Дата рождения',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Text(
+                '${_birthDate.day.toString().padLeft(2, '0')}.${_birthDate.month.toString().padLeft(2, '0')}.${_birthDate.year}',
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _heightController,
+                  decoration: const InputDecoration(
+                    labelText: 'Рост (см)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.height),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _weightController,
+                  decoration: const InputDecoration(
+                    labelText: 'Вес (кг)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.monitor_weight),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : () => Navigator.pop(context),
+                  child: const Text('Отмена'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isLoading || _nameController.text.isEmpty
+                      ? null
+                      : _saveChild,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Сохранить'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}.${date.month}.${date.year}';
-  }
-
-  void _showAddChildDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => const AddChildDialog(),
-    );
-  }
-
-  void _showEditChildDialog(BuildContext context, ChildProfile child) {
-    showDialog(
-      context: context,
-      builder: (context) => EditChildDialog(child: child),
-    );
-  }
-
-  void _showEditPetDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => EditPetDialog(child: _activeChild!),
-    );
-  }
-}
-
-// Модели данных
-class MilestoneData {
-  final String title;
-  final int progress;
-  final Color color;
-
-  MilestoneData(this.title, this.progress, this.color);
-}
-
-class StatItem {
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-
-  StatItem(this.icon, this.value, this.label, this.color);
-}
-
-// Диалог добавления ребенка
-class AddChildDialog extends StatefulWidget {
-  const AddChildDialog({super.key});
-
-  @override
-  State<AddChildDialog> createState() => _AddChildDialogState();
-}
-
-class _AddChildDialogState extends State<AddChildDialog> {
-  final _nameController = TextEditingController();
-  final _heightController = TextEditingController();
-  final _weightController = TextEditingController();
-  DateTime _birthDate = DateTime.now().subtract(const Duration(days: 365 * 2));
-  String _gender = 'male';
-  bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _heightController.dispose();
-    _weightController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (_nameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите имя ребенка')),
-      );
-      return;
-    }
-
+  Future<void> _saveChild() async {
     setState(() => _isLoading = true);
 
     try {
       await FirebaseService.addChild(
         name: _nameController.text,
         birthDate: _birthDate,
-        gender: _gender,
+        gender: _selectedGender,
         height: double.tryParse(_heightController.text) ?? 0.0,
         weight: double.tryParse(_weightController.text) ?? 0.0,
       );
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ребенок добавлен')),
-        );
-      }
+      
+      widget.onSave();
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ребенок добавлен успешно!')),
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: ${e.toString()}')),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      setState(() => _isLoading = false);
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Добавить ребенка'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Имя',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Дата рождения
-            ListTile(
-              title: const Text('Дата рождения'),
-              subtitle: Text(
-                '${_birthDate.day}.${_birthDate.month}.${_birthDate.year}',
-              ),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _birthDate,
-                  firstDate:
-                      DateTime.now().subtract(const Duration(days: 365 * 18)),
-                  lastDate: DateTime.now(),
-                );
-                if (date != null) {
-                  setState(() => _birthDate = date);
-                }
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Пол
-            Row(
-              children: [
-                const Text('Пол: '),
-                Radio<String>(
-                  value: 'male',
-                  groupValue: _gender,
-                  onChanged: (value) => setState(() => _gender = value!),
-                ),
-                const Text('Мальчик'),
-                Radio<String>(
-                  value: 'female',
-                  groupValue: _gender,
-                  onChanged: (value) => setState(() => _gender = value!),
-                ),
-                const Text('Девочка'),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Рост и вес
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _heightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Рост (см)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _weightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Вес (кг)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _save,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Добавить'),
-        ),
-      ],
-    );
   }
 }
 
 // Диалог редактирования ребенка
-class EditChildDialog extends StatefulWidget {
+class _EditChildDialog extends StatefulWidget {
   final ChildProfile child;
+  final VoidCallback onSave;
 
-  const EditChildDialog({super.key, required this.child});
+  const _EditChildDialog({required this.child, required this.onSave});
 
   @override
-  State<EditChildDialog> createState() => _EditChildDialogState();
+  State<_EditChildDialog> createState() => _EditChildDialogState();
 }
 
-class _EditChildDialogState extends State<EditChildDialog> {
+class _EditChildDialogState extends State<_EditChildDialog> {
   late TextEditingController _nameController;
   late TextEditingController _heightController;
   late TextEditingController _weightController;
+  late String _selectedGender;
   late DateTime _birthDate;
-  late String _gender;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.child.name);
-    _heightController =
-        TextEditingController(text: widget.child.height.toString());
-    _weightController =
-        TextEditingController(text: widget.child.weight.toString());
+    _heightController = TextEditingController(text: widget.child.height.toString());
+    _weightController = TextEditingController(text: widget.child.weight.toString());
+    _selectedGender = widget.child.gender;
     _birthDate = widget.child.birthDate;
-    _gender = widget.child.gender;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _heightController.dispose();
-    _weightController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseService.updateChild(
-        childId: widget.child.id,
-        data: {
-          'name': _nameController.text,
-          'birthDate': _birthDate,
-          'gender': _gender,
-          'height': double.tryParse(_heightController.text) ?? 0,
-          'weight': double.tryParse(_weightController.text) ?? 0,
-        },
-      );
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Данные обновлены')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Редактировать данные'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Имя',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Дата рождения
-            ListTile(
-              title: const Text('Дата рождения'),
-              subtitle: Text(
-                '${_birthDate.day}.${_birthDate.month}.${_birthDate.year}',
-              ),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _birthDate,
-                  firstDate:
-                      DateTime.now().subtract(const Duration(days: 365 * 18)),
-                  lastDate: DateTime.now(),
-                );
-                if (date != null) {
-                  setState(() => _birthDate = date);
-                }
-              },
-            ),
-
-            const SizedBox(height: 16),
-
-            // Пол
-            Row(
-              children: [
-                const Text('Пол: '),
-                Radio<String>(
-                  value: 'male',
-                  groupValue: _gender,
-                  onChanged: (value) => setState(() => _gender = value!),
-                ),
-                const Text('Мальчик'),
-                Radio<String>(
-                  value: 'female',
-                  groupValue: _gender,
-                  onChanged: (value) => setState(() => _gender = value!),
-                ),
-                const Text('Девочка'),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Рост и вес
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _heightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Рост (см)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _weightController,
-                    decoration: const InputDecoration(
-                      labelText: 'Вес (кг)',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      padding: EdgeInsets.only(
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _save,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Сохранить'),
-        ),
-      ],
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.blue, Colors.cyan],
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(Icons.edit, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Редактировать данные',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Имя ребенка',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person),
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedGender,
+            decoration: const InputDecoration(
+              labelText: 'Пол',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.wc),
+            ),
+            onChanged: (value) {
+              setState(() {
+                _selectedGender = value!;
+              });
+            },
+            items: const [
+              DropdownMenuItem(
+                value: 'male',
+                child: Text('Мальчик'),
+              ),
+              DropdownMenuItem(
+                value: 'female',
+                child: Text('Девочка'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _birthDate,
+                firstDate: DateTime.now().subtract(const Duration(days: 365 * 10)),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) {
+                setState(() {
+                  _birthDate = picked;
+                });
+              }
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Дата рождения',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Text(
+                '${_birthDate.day.toString().padLeft(2, '0')}.${_birthDate.month.toString().padLeft(2, '0')}.${_birthDate.year}',
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _heightController,
+                  decoration: const InputDecoration(
+                    labelText: 'Рост (см)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.height),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _weightController,
+                  decoration: const InputDecoration(
+                    labelText: 'Вес (кг)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.monitor_weight),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              // Открываем диалог добавления измерения
+              _showAddMeasurementDialog();
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Добавить новое измерение'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : () => Navigator.pop(context),
+                  child: const Text('Отмена'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isLoading || _nameController.text.isEmpty
+                      ? null
+                      : _saveChild,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Сохранить'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddMeasurementDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddMeasurementDialog(
+        childId: widget.child.id,
+        currentHeight: widget.child.height,
+        currentWeight: widget.child.weight,
+        onSave: () {
+          widget.onSave();
+        },
+      ),
+    );
+  }
+
+  Future<void> _saveChild() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseService.updateChildProfile(widget.child.id, {
+        'name': _nameController.text,
+        'gender': _selectedGender,
+        'birthDate': Timestamp.fromDate(_birthDate),
+        'height': double.tryParse(_heightController.text) ?? widget.child.height,
+        'weight': double.tryParse(_weightController.text) ?? widget.child.weight,
+      });
+      
+      widget.onSave();
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Данные обновлены успешно!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+}
+
+// Диалог добавления вехи развития
+class _AddMilestoneDialog extends StatefulWidget {
+  final Function(Milestone) onSave;
+
+  const _AddMilestoneDialog({required this.onSave});
+
+  @override
+  State<_AddMilestoneDialog> createState() => _AddMilestoneDialogState();
+}
+
+class _AddMilestoneDialogState extends State<_AddMilestoneDialog> {
+  final _titleController = TextEditingController();
+  final _categoryController = TextEditingController();
+  final _minAgeController = TextEditingController();
+  final _maxAgeController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.orange, Colors.red],
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(Icons.flag, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Добавить веху развития',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              labelText: 'Название вехи',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.flag),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _categoryController,
+            decoration: const InputDecoration(
+              labelText: 'Категория',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.category),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _minAgeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Мин. возраст (мес)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _maxAgeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Макс. возраст (мес)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Отмена'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _titleController.text.isNotEmpty &&
+                          _categoryController.text.isNotEmpty
+                      ? () {
+                          final milestone = Milestone(
+                            _titleController.text,
+                            _categoryController.text,
+                            int.tryParse(_minAgeController.text) ?? 0,
+                            int.tryParse(_maxAgeController.text) ?? 12,
+                            false,
+                          );
+                          widget.onSave(milestone);
+                          Navigator.pop(context);
+                        }
+                      : null,
+                  child: const Text('Добавить'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-// Диалог редактирования питомца
-class EditPetDialog extends StatefulWidget {
-  final ChildProfile child;
+// Диалог добавления измерения
+class _AddMeasurementDialog extends StatefulWidget {
+  final String childId;
+  final double currentHeight;
+  final double currentWeight;
+  final VoidCallback onSave;
 
-  const EditPetDialog({super.key, required this.child});
+  const _AddMeasurementDialog({
+    required this.childId,
+    required this.currentHeight,
+    required this.currentWeight,
+    required this.onSave,
+  });
 
   @override
-  State<EditPetDialog> createState() => _EditPetDialogState();
+  State<_AddMeasurementDialog> createState() => _AddMeasurementDialogState();
 }
 
-class _EditPetDialogState extends State<EditPetDialog> {
-  late TextEditingController _nameController;
-  late String _selectedEmoji;
+class _AddMeasurementDialogState extends State<_AddMeasurementDialog> {
+  late TextEditingController _heightController;
+  late TextEditingController _weightController;
+  final _notesController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
-
-  final List<String> _petEmojis = [
-    '🦄',
-    '🐻',
-    '🦊',
-    '🐯',
-    '🦁',
-    '🐶',
-    '🐱',
-    '🐭',
-    '🐹',
-    '🐰'
-  ];
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.child.petName);
-    _selectedEmoji = widget.child.petType;
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    setState(() => _isLoading = true);
-
-    try {
-      await FirebaseService.updateChild(
-        childId: widget.child.id,
-        data: {
-          'petName': _nameController.text,
-          'petType': _selectedEmoji,
-        },
-      );
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+    _heightController = TextEditingController(text: widget.currentHeight.toString());
+    _weightController = TextEditingController(text: widget.currentWeight.toString());
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Редактировать питомца'),
-      content: Column(
+    return Container(
+      padding: EdgeInsets.only(
+        top: 20,
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Имя питомца',
-              border: OutlineInputBorder(),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
           const SizedBox(height: 20),
-          const Text('Выберите питомца:'),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: _petEmojis.map((emoji) {
-              final isSelected = _selectedEmoji == emoji;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedEmoji = emoji),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Colors.purple.shade100
-                        : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? Colors.purple : Colors.transparent,
-                      width: 2,
-                    ),
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.green, Colors.teal],
                   ),
-                  child: Text(emoji, style: const TextStyle(fontSize: 30)),
+                  borderRadius: BorderRadius.circular(15),
                 ),
+                child: const Icon(Icons.straighten, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Новое измерение',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDate,
+                firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                lastDate: DateTime.now(),
               );
-            }).toList(),
+              if (picked != null) {
+                setState(() {
+                  _selectedDate = picked;
+                });
+              }
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Дата измерения',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.calendar_today),
+              ),
+              child: Text(
+                '${_selectedDate.day.toString().padLeft(2, '0')}.${_selectedDate.month.toString().padLeft(2, '0')}.${_selectedDate.year}',
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _heightController,
+                  decoration: const InputDecoration(
+                    labelText: 'Рост (см)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.height),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: TextField(
+                  controller: _weightController,
+                  decoration: const InputDecoration(
+                    labelText: 'Вес (кг)',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.monitor_weight),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _notesController,
+            decoration: const InputDecoration(
+              labelText: 'Заметки (необязательно)',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.note),
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isLoading ? null : () => Navigator.pop(context),
+                  child: const Text('Отмена'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _saveMeasurement,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Сохранить'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _save,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Сохранить'),
-        ),
-      ],
     );
+  }
+
+  Future<void> _saveMeasurement() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final measurement = GrowthMeasurement(
+        id: '', // Firebase сгенерирует ID
+        childId: widget.childId,
+        date: _selectedDate,
+        height: double.tryParse(_heightController.text) ?? widget.currentHeight,
+        weight: double.tryParse(_weightController.text) ?? widget.currentWeight,
+        notes: _notesController.text,
+      );
+
+      await FirebaseService.addGrowthMeasurement(measurement);
+      
+      widget.onSave();
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Измерение добавлено успешно!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: ${e.toString()}')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 }

@@ -9,7 +9,25 @@ import '../services/ai_service.dart';
 import '../services/firebase_service.dart';
 import '../main.dart';
 import 'challenges_screen.dart';
+import 'analytics_screen.dart';
+import 'diary_screen.dart';
+import 'activity_tracker_screen.dart';
+import 'notification_settings_screen.dart';
+import 'performance_screen.dart';
+import 'child_profile_screen.dart';
+import 'vaccination_screen.dart';
+import 'medical_records_screen.dart';
+import 'growth_charts_screen.dart';
+import 'nutrition_tracker_screen.dart';
+import 'recipes_screen.dart';
+import 'sleep_tracker_screen.dart';
+import 'emergency_screen.dart';
+import 'development_screen.dart';
+import 'social_milestones_screen.dart';
 import '../widgets/connectivity_indicator.dart';
+import '../widgets/sync_status_widget.dart';
+// import '../services/sync_service.dart';
+import '../utils/performance_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -63,18 +81,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       FeatureItem(
         icon: Icons.auto_awesome,
         title: loc.aiAssistant,
+        subtitle: 'Советы по воспитанию',
         gradient: [Colors.purple, Colors.pink],
         onTap: () => _showAIAssistant(context),
       ),
       FeatureItem(
-        icon: Icons.camera_alt,
-        title: loc.arHeight,
-        gradient: [Colors.blue, Colors.cyan],
-        onTap: () => _showComingSoon(context, loc.arHeight),
+        icon: Icons.menu_book,
+        title: loc.stories,
+        subtitle: 'Персональные сказки',
+        gradient: [Colors.green, Colors.teal],
+        onTap: () => _showStoryGenerator(context),
+      ),
+      FeatureItem(
+        icon: Icons.analytics,
+        title: 'Аналитика',
+        subtitle: 'Статистика развития',
+        gradient: [Colors.indigo, Colors.blue],
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const AnalyticsScreen()),
+        ),
+      ),
+      FeatureItem(
+        icon: Icons.book,
+        title: 'Дневник',
+        subtitle: 'Записи и фото',
+        gradient: [Colors.pink, Colors.purple],
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DiaryScreen()),
+        ),
+      ),
+      FeatureItem(
+        icon: Icons.timeline,
+        title: 'Активности',
+        subtitle: 'Сон, еда, прогулки',
+        gradient: [Colors.teal, Colors.cyan],
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ActivityTrackerScreen()),
+        ),
       ),
       FeatureItem(
         icon: Icons.emoji_events,
         title: loc.challenges,
+        subtitle: 'Задания и достижения',
         gradient: [Colors.orange, Colors.red],
         onTap: () => Navigator.push(
           context,
@@ -82,41 +133,231 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ),
       FeatureItem(
+        icon: Icons.child_care,
+        title: 'Профиль ребенка',
+        subtitle: 'Рост, вес, развитие',
+        gradient: [Colors.blue, Colors.lightBlue],
+        onTap: () {
+          // Переход к профилю ребенка
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const ChildProfileScreen(),
+            ),
+          );
+        },
+      ),
+      FeatureItem(
+        icon: Icons.vaccines,
+        title: 'Прививки',
+        subtitle: 'Календарь вакцинации',
+        gradient: [Colors.blue[700]!, Colors.blue[500]!],
+        onTap: () async {
+          // Получаем активного ребенка для прививок
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VaccinationScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
+      ),
+      FeatureItem(
+        icon: Icons.medical_services,
+        title: 'Медкарта',
+        subtitle: 'Записи врачей, анализы',
+        gradient: [Colors.green[700]!, Colors.green[500]!],
+        onTap: () async {
+          // Получаем активного ребенка для медицинских записей
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MedicalRecordsScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
+      ),
+      FeatureItem(
+        icon: Icons.show_chart,
+        title: 'Физическое развитие',
+        subtitle: 'Графики роста и ВОЗ',
+        gradient: [Colors.purple[700]!, Colors.purple[500]!],
+        onTap: () async {
+          // Получаем активного ребенка для графиков роста
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => GrowthChartsScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
+      ),
+      FeatureItem(
+        icon: Icons.restaurant,
+        title: 'Дневник питания',
+        subtitle: 'Отслеживание и анализ питания',
+        gradient: [Colors.green[700]!, Colors.green[500]!],
+        onTap: () async {
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => NutritionTrackerScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
+      ),
+      FeatureItem(
         icon: Icons.menu_book,
-        title: loc.stories,
-        gradient: [Colors.green, Colors.teal],
-        onTap: () => _showStoryGenerator(context),
+        title: 'Рецепты',
+        subtitle: 'Здоровые рецепты по возрасту',
+        gradient: [Colors.orange[700]!, Colors.orange[500]!],
+        onTap: () async {
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RecipesScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
       ),
       FeatureItem(
-        icon: Icons.forum,
-        title: loc.topicOfDay,
-        gradient: [Colors.pink, Colors.purple],
-        badge: '47',
-        onTap: () => _showComingSoon(context, loc.topicOfDay),
+        icon: Icons.bedtime,
+        title: 'Трекер сна',
+        subtitle: 'Мониторинг качества сна',
+        gradient: [Colors.indigo[700]!, Colors.indigo[500]!],
+        onTap: () async {
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SleepTrackerScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
       ),
       FeatureItem(
-        icon: Icons.calendar_today,
-        title: loc.dailyPlan,
-        gradient: [Colors.indigo, Colors.blue],
-        onTap: () => _showComingSoon(context, loc.dailyPlan),
+        icon: Icons.emergency,
+        title: 'Экстренные ситуации',
+        subtitle: 'SOS и первая помощь',
+        gradient: [Colors.red[800]!, Colors.red[600]!],
+        onTap: () async {
+          final activeChild = await FirebaseService.getActiveChild();
+          if (context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EmergencyScreen(childId: activeChild?.id),
+              ),
+            );
+          }
+        },
       ),
       FeatureItem(
         icon: Icons.psychology,
-        title: loc.development,
-        gradient: [Colors.amber, Colors.orange],
-        onTap: () => _showComingSoon(context, loc.development),
+        title: 'Раннее развитие',
+        subtitle: 'Активности и прогресс',
+        gradient: [Colors.purple[700]!, Colors.purple[500]!],
+        onTap: () async {
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => DevelopmentScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
       ),
       FeatureItem(
-        icon: Icons.sports_esports,
-        title: loc.games,
-        gradient: [Colors.teal, Colors.green],
-        onTap: () => _showComingSoon(context, loc.games),
-      ),
-      FeatureItem(
-        icon: Icons.favorite,
-        title: loc.health,
-        gradient: [Colors.red, Colors.pink],
-        onTap: () => _showComingSoon(context, loc.health),
+        icon: Icons.people,
+        title: 'Социальные вехи',
+        subtitle: 'Эмоциональное развитие',
+        gradient: [Colors.deepPurple[700]!, Colors.deepPurple[500]!],
+        onTap: () async {
+          final activeChild = await FirebaseService.getActiveChild();
+          if (activeChild != null && context.mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SocialMilestonesScreen(childId: activeChild.id),
+              ),
+            );
+          } else if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Сначала добавьте профиль ребенка'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        },
       ),
     ];
 
@@ -162,6 +403,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 // Индикатор сети
                 const ConnectivityIndicator(),
                 
+                // Статус синхронизации
+                const SyncStatusWidget(),
+                
                 // Заголовок
                 _buildHeader(context, themeProvider, localeProvider),
 
@@ -180,19 +424,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: GridView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
+                    child: OptimizedGridView(
                       itemCount: features.length,
+                      crossAxisCount: 2,
+                      childAspectRatio: 1.0,
                       itemBuilder: (context, index) {
                         final feature = features[index];
-                        return _FeatureCard(
-                          feature: feature,
-                          index: index,
+                        return RepaintBoundary(
+                          child: _FeatureCard(
+                            feature: feature,
+                            index: index,
+                          ),
                         );
                       },
                     ),
@@ -262,7 +504,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined),
-                onPressed: () {},
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationSettingsScreen(),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.speed),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PerformanceScreen(),
+                  ),
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.settings),
@@ -386,17 +642,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(20),
           ),
         ),
-      ),
-    );
-  }
-
-  void _showComingSoon(BuildContext context, String feature) {
-    final loc = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature ${loc.comingSoon}'),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -1157,6 +1402,7 @@ class _ChatBubble extends StatelessWidget {
 class FeatureItem {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final List<Color> gradient;
   final String? badge;
   final VoidCallback onTap;
@@ -1164,6 +1410,7 @@ class FeatureItem {
   FeatureItem({
     required this.icon,
     required this.title,
+    this.subtitle,
     required this.gradient,
     this.badge,
     required this.onTap,
@@ -1202,25 +1449,42 @@ class _FeatureCard extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            Center(
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     feature.icon,
                     color: Colors.white,
-                    size: 35,
+                    size: 48,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
                     feature.title,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  if (feature.subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      feature.subtitle!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
             ),

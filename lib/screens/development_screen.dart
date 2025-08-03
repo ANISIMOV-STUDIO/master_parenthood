@@ -1,13 +1,11 @@
 // lib/screens/development_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:fl_chart/fl_chart.dart';
-import '../l10n/app_localizations.dart';
-import '../services/challenges_service.dart';
 import '../services/firebase_service.dart';
 
 class DevelopmentScreen extends StatefulWidget {
-  const DevelopmentScreen({super.key});
+  final String childId;
+
+  const DevelopmentScreen({super.key, required this.childId});
 
   @override
   State<DevelopmentScreen> createState() => _DevelopmentScreenState();
@@ -15,21 +13,18 @@ class DevelopmentScreen extends StatefulWidget {
 
 class _DevelopmentScreenState extends State<DevelopmentScreen>
     with SingleTickerProviderStateMixin {
+  
   late TabController _tabController;
-  ChildProfile? _activeChild;
+  List<DevelopmentActivity> _activities = [];
+  List<ActivityCompletion> _completions = [];
+  bool _isLoading = true;
+  DevelopmentArea? _selectedArea;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _loadActiveChild();
-  }
-
-  Future<void> _loadActiveChild() async {
-    final child = await FirebaseService.getActiveChild();
-    if (mounted) {
-      setState(() => _activeChild = child);
-    }
+    _tabController = TabController(length: 4, vsync: this);
+    _loadDevelopmentData();
   }
 
   @override
@@ -38,680 +33,646 @@ class _DevelopmentScreenState extends State<DevelopmentScreen>
     super.dispose();
   }
 
+  Future<void> _loadDevelopmentData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Загружаем рекомендуемые активности
+      final recommendedActivities = await FirebaseService.getRecommendedActivities(widget.childId);
+      
+      // Загружаем завершенные активности
+      FirebaseService.getActivityCompletionsStream(widget.childId).listen((completions) {
+        setState(() {
+          _completions = completions;
+        });
+      });
+      
+      setState(() {
+        _activities = recommendedActivities;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка загрузки: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context)!;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(loc.development),
-        centerTitle: true,
+        title: const Text('Раннее развитие'),
+        backgroundColor: Colors.purple[700],
+        foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Вехи развития'),
-            Tab(text: 'График роста'),
-            Tab(text: 'Статистика'),
+            Tab(icon: Icon(Icons.lightbulb), text: 'Рекомендации'),
+            Tab(icon: Icon(Icons.category), text: 'По областям'),
+            Tab(icon: Icon(Icons.history), text: 'История'),
+            Tab(icon: Icon(Icons.analytics), text: 'Прогресс'),
           ],
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
         ),
       ),
-      body: _activeChild == null
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
-        controller: _tabController,
-        children: [
-          _MilestonesTab(child: _activeChild!),
-          _GrowthChartTab(child: _activeChild!),
-          _StatisticsTab(child: _activeChild!),
-        ],
-      ),
-    );
-  }
-}
-
-// Вкладка вех развития
-class _MilestonesTab extends StatelessWidget {
-  final ChildProfile child;
-
-  const _MilestonesTab({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final milestones = _getMilestonesForAge(child.ageInMonths);
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Карточка возраста
-        Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.purple.withValues(alpha: 0.1),
-                  Colors.pink.withValues(alpha: 0.1),
-                ],
-              ),
-            ),
-            child: Column(
+              controller: _tabController,
               children: [
-                Text(
-                  child.name,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Возраст: ${child.ageFormatted}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _StatItem(
-                      icon: Icons.height,
-                      label: 'Рост',
-                      value: '${child.height.toStringAsFixed(1)} см',
-                      color: Colors.blue,
-                    ),
-                    _StatItem(
-                      icon: Icons.monitor_weight,
-                      label: 'Вес',
-                      value: '${child.weight.toStringAsFixed(1)} кг',
-                      color: Colors.green,
-                    ),
-                    _StatItem(
-                      icon: Icons.abc,
-                      label: 'Слов',
-                      value: '${child.vocabularySize}',
-                      color: Colors.orange,
-                    ),
-                  ],
-                ),
+                _buildRecommendationsTab(),
+                _buildAreaFilterTab(),
+                _buildHistoryTab(),
+                _buildProgressTab(),
               ],
             ),
-          ),
-        ).animate().fadeIn().slideY(begin: -0.1, end: 0),
+    );
+  }
 
-        const SizedBox(height: 20),
+  Widget _buildRecommendationsTab() {
+    if (_activities.isEmpty) {
+      return _buildEmptyState('Нет рекомендуемых активностей');
+    }
 
-        // Вехи развития
-        Text(
-          'Вехи развития для ${child.ageInYears} ${_getYearWord(child.ageInYears)}',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _activities.length,
+      itemBuilder: (context, index) {
+        final activity = _activities[index];
+        return _buildActivityCard(activity);
+      },
+    );
+  }
+
+  Widget _buildAreaFilterTab() {
+    return Column(
+      children: [
+        // Фильтр по областям развития
+        Container(
+          height: 120,
+          padding: const EdgeInsets.all(16),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: DevelopmentArea.values.length,
+            itemBuilder: (context, index) {
+              final area = DevelopmentArea.values[index];
+              final isSelected = _selectedArea == area;
+              
+              return Container(
+                margin: const EdgeInsets.only(right: 12),
+                child: FilterChip(
+                  selected: isSelected,
+                  onSelected: (selected) => _filterByArea(selected ? area : null),
+                  avatar: Text(
+                    area.iconEmoji,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  label: Text(
+                    area.displayName,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Color(area.colorHex),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  backgroundColor: isSelected 
+                      ? Color(area.colorHex) 
+                      : Color(area.colorHex).withValues(alpha: 0.1),
+                  selectedColor: Color(area.colorHex),
+                  checkmarkColor: Colors.white,
+                  side: BorderSide(
+                    color: Color(area.colorHex).withValues(alpha: 0.3),
+                  ),
+                ),
+              );
+            },
           ),
         ),
-        const SizedBox(height: 16),
-
-        ...milestones.map((category) {
-          final categoryData = category.entries.first;
-          return _MilestoneCategoryCard(
-            category: categoryData.key,
-            milestones: categoryData.value,
-            childMilestones: child.milestones[categoryData.key] ?? {},
-          );
-        }),
+        
+        // Список активностей по выбранной области
+        Expanded(
+          child: _buildFilteredActivities(),
+        ),
       ],
     );
   }
 
-  String _getYearWord(int years) {
-    if (years % 10 == 1 && years % 100 != 11) return 'год';
-    if ([2, 3, 4].contains(years % 10) && ![12, 13, 14].contains(years % 100)) return 'года';
-    return 'лет';
-  }
-
-  List<Map<String, List<Map<String, dynamic>>>> _getMilestonesForAge(int ageInMonths) {
-    // Вехи развития по возрастам
-    if (ageInMonths < 3) {
-      return [
-        {
-          'physical': [
-            {'title': 'Держит голову', 'desc': 'Может удерживать голову прямо'},
-            {'title': 'Следит глазами', 'desc': 'Следит за движущимися предметами'},
-          ]
-        },
-        {
-          'social': [
-            {'title': 'Улыбается', 'desc': 'Социальная улыбка в ответ'},
-            {'title': 'Узнает голоса', 'desc': 'Различает знакомые голоса'},
-          ]
-        },
-      ];
-    } else if (ageInMonths < 6) {
-      return [
-        {
-          'physical': [
-            {'title': 'Переворачивается', 'desc': 'С живота на спину и обратно'},
-            {'title': 'Хватает игрушки', 'desc': 'Целенаправленно берет предметы'},
-          ]
-        },
-        {
-          'cognitive': [
-            {'title': 'Изучает предметы', 'desc': 'Рассматривает и трогает'},
-            {'title': 'Реагирует на имя', 'desc': 'Поворачивается на свое имя'},
-          ]
-        },
-      ];
-    } else if (ageInMonths < 12) {
-      return [
-        {
-          'physical': [
-            {'title': 'Сидит без поддержки', 'desc': 'Уверенно сидит сам'},
-            {'title': 'Ползает', 'desc': 'Передвигается на четвереньках'},
-            {'title': 'Встает с опорой', 'desc': 'Подтягивается и стоит'},
-          ]
-        },
-        {
-          'language': [
-            {'title': 'Лепетает', 'desc': 'Произносит слоги ба-ба, ма-ма'},
-            {'title': 'Понимает "нет"', 'desc': 'Реагирует на запреты'},
-          ]
-        },
-      ];
-    } else {
-      return [
-        {
-          'physical': [
-            {'title': 'Ходит самостоятельно', 'desc': 'Делает первые шаги'},
-            {'title': 'Поднимается по лестнице', 'desc': 'С поддержкой за руку'},
-          ]
-        },
-        {
-          'language': [
-            {'title': 'Говорит слова', 'desc': 'Произносит 5-10 слов'},
-            {'title': 'Показывает части тела', 'desc': 'По просьбе взрослого'},
-          ]
-        },
-      ];
-    }
-  }
-}
-
-// Карточка категории вех
-class _MilestoneCategoryCard extends StatelessWidget {
-  final String category;
-  final List<Map<String, dynamic>> milestones;
-  final Map<String, dynamic> childMilestones;
-
-  const _MilestoneCategoryCard({
-    required this.category,
-    required this.milestones,
-    required this.childMilestones,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+  Widget _buildFilteredActivities() {
+    if (_selectedArea == null) {
+      return const Center(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _getCategoryColor(category).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    _getCategoryIcon(category),
-                    color: _getCategoryColor(category),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  _getCategoryName(category),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+            Icon(Icons.filter_list, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'Выберите область развития',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
-            const SizedBox(height: 16),
-            ...milestones.map((milestone) {
-              final isCompleted = childMilestones[milestone['title']] ?? false;
+          ],
+        ),
+      );
+    }
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return FutureBuilder<List<DevelopmentActivity>>(
+      future: FirebaseService.getActivitiesByArea(_selectedArea!),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasError) {
+          return Center(child: Text('Ошибка: ${snapshot.error}'));
+        }
+        
+        final activities = snapshot.data ?? [];
+        
+        if (activities.isEmpty) {
+          return _buildEmptyState('Нет активностей для выбранной области');
+        }
+        
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: activities.length,
+          itemBuilder: (context, index) {
+            final activity = activities[index];
+            return _buildActivityCard(activity);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryTab() {
+    if (_completions.isEmpty) {
+      return _buildEmptyState('Нет выполненных активностей');
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _completions.length,
+      itemBuilder: (context, index) {
+        final completion = _completions[index];
+        return _buildCompletionCard(completion);
+      },
+    );
+  }
+
+  Widget _buildProgressTab() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: FirebaseService.generateDevelopmentReport(widget.childId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasError) {
+          return Center(child: Text('Ошибка: ${snapshot.error}'));
+        }
+        
+        final report = snapshot.data ?? {};
+        return _buildProgressReport(report);
+      },
+    );
+  }
+
+  Widget _buildActivityCard(DevelopmentActivity activity) {
+    final isCompleted = _completions.any((c) => c.activityId == activity.id);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _showActivityDetails(activity),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Checkbox(
-                      value: isCompleted,
-                      onChanged: (value) {
-                        // TODO: Update milestone status
-                      },
-                      activeColor: _getCategoryColor(category),
+                    // Иконка области развития
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Color(activity.area.colorHex).withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          activity.area.iconEmoji,
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                      ),
                     ),
+                    
+                    const SizedBox(width: 16),
+                    
+                    // Заголовок и область
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            milestone['title'],
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              decoration: isCompleted
-                                  ? TextDecoration.lineThrough
-                                  : null,
+                            activity.title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                          
                           const SizedBox(height: 4),
+                          
                           Text(
-                            milestone['desc'],
+                            activity.area.displayName,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade600,
+                              color: Color(activity.area.colorHex),
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'physical':
-        return Colors.blue;
-      case 'cognitive':
-        return Colors.orange;
-      case 'language':
-        return Colors.green;
-      case 'social':
-        return Colors.purple;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'physical':
-        return Icons.directions_run;
-      case 'cognitive':
-        return Icons.psychology;
-      case 'language':
-        return Icons.chat;
-      case 'social':
-        return Icons.people;
-      default:
-        return Icons.check_circle;
-    }
-  }
-
-  String _getCategoryName(String category) {
-    switch (category) {
-      case 'physical':
-        return 'Физическое развитие';
-      case 'cognitive':
-        return 'Познавательное развитие';
-      case 'language':
-        return 'Речевое развитие';
-      case 'social':
-        return 'Социальное развитие';
-      default:
-        return 'Развитие';
-    }
-  }
-}
-
-// Вкладка графика роста
-class _GrowthChartTab extends StatelessWidget {
-  final ChildProfile child;
-
-  const _GrowthChartTab({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _GrowthChart(
-            title: 'Рост (см)',
-            currentValue: child.height,
-            color: Colors.blue,
-          ),
-          const SizedBox(height: 24),
-          _GrowthChart(
-            title: 'Вес (кг)',
-            currentValue: child.weight,
-            color: Colors.green,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// График роста
-class _GrowthChart extends StatelessWidget {
-  final String title;
-  final double currentValue;
-  final Color color;
-
-  const _GrowthChart({
-    required this.title,
-    required this.currentValue,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Текущее значение: ${currentValue.toStringAsFixed(1)}',
-              style: TextStyle(
-                fontSize: 16,
-                color: color,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              height: 200,
-              padding: const EdgeInsets.only(right: 16),
-              child: LineChart(
-                LineChartData(
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: true,
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                        strokeWidth: 1,
-                      );
-                    },
-                    getDrawingVerticalLine: (value) {
-                      return FlLine(
-                        color: Colors.grey.withValues(alpha: 0.3),
-                        strokeWidth: 1,
-                      );
-                    },
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        interval: 1,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            '${value.toInt()} мес',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          );
-                        },
+                    
+                    // Статус выполнения
+                    if (isCompleted)
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 28,
                       ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: 10,
-                        reservedSize: 40,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  borderData: FlBorderData(
-                    show: true,
-                    border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  minX: 0,
-                  maxX: 12,
-                  minY: 0,
-                  maxY: currentValue * 1.5,
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: [
-                        FlSpot(0, currentValue * 0.7),
-                        FlSpot(3, currentValue * 0.8),
-                        FlSpot(6, currentValue * 0.9),
-                        FlSpot(9, currentValue * 0.95),
-                        FlSpot(12, currentValue),
-                      ],
-                      isCurved: true,
-                      color: color,
-                      barWidth: 3,
-                      isStrokeCapRound: true,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 4,
-                            color: Colors.white,
-                            strokeWidth: 2,
-                            strokeColor: color,
-                          );
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: color.withValues(alpha: 0.1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Вкладка статистики
-class _StatisticsTab extends StatelessWidget {
-  final ChildProfile child;
-
-  const _StatisticsTab({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Общая статистика
-        Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Общая статистика',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildStatRow('Возраст', child.ageFormatted),
-                _buildStatRow('Рост', '${child.height} см'),
-                _buildStatRow('Вес', '${child.weight} кг'),
-                _buildStatRow('Словарный запас', '${child.vocabularySize} слов'),
-                const Divider(height: 32),
-                _buildStatRow('Питомец', '${child.petName} ${child.petType}'),
-                const SizedBox(height: 16),
-                // Статы питомца
-                ...child.petStats.entries.map((stat) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    
+                    // Рейтинг и сложность
+                    Column(
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 16),
                             Text(
-                              _getStatName(stat.key),
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            Text(
-                              '${stat.value}%',
+                              activity.rating.toStringAsFixed(1),
                               style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
+                        
                         const SizedBox(height: 4),
-                        LinearProgressIndicator(
-                          value: stat.value / 100,
-                          backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            _getStatColor(stat.key),
+                        
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Color(activity.difficulty.colorHex),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          minHeight: 6,
-                          borderRadius: BorderRadius.circular(3),
+                          child: Text(
+                            activity.difficulty.displayName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  );
-                }),
+                  ],
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Описание
+                Text(
+                  activity.description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[700],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Метрики
+                Row(
+                  children: [
+                    _buildMetricChip(
+                      icon: Icons.timer,
+                      label: activity.formattedDuration,
+                      color: Colors.blue,
+                    ),
+                    
+                    const SizedBox(width: 12),
+                    
+                    _buildMetricChip(
+                      icon: Icons.child_care,
+                      label: activity.ageRange.displayName,
+                      color: Colors.green,
+                    ),
+                    
+                    const SizedBox(width: 12),
+                    
+                    if (activity.requiresAdult)
+                      _buildMetricChip(
+                        icon: Icons.supervisor_account,
+                        label: 'С взрослым',
+                        color: Colors.orange,
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        // Активность
-        StreamBuilder<List<StoryData>>(
-          stream: FirebaseService.getStoriesStream(child.id),
-          builder: (context, storySnapshot) {
-            final stories = storySnapshot.data ?? [];
+      ),
+    );
+  }
 
-            return StreamBuilder<List<Challenge>>(
-              stream: ChallengesService.getCompletedChallengesStream(childId: child.id),
-              builder: (context, challengeSnapshot) {
-                final challenges = challengeSnapshot.data ?? [];
+  Widget _buildCompletionCard(ActivityCompletion completion) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(16),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Color(completion.successColorHex).withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Icon(
+                completion.wasCompleted ? Icons.check : Icons.close,
+                color: Color(completion.successColorHex),
+              ),
+            ),
+          ),
+          title: FutureBuilder<DevelopmentActivity?>(
+            future: _getActivityById(completion.activityId),
+            builder: (context, snapshot) {
+              final activity = snapshot.data;
+              return Text(
+                activity?.title ?? 'Активность не найдена',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              );
+            },
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(completion.formattedDate),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text('Время: ${completion.formattedDuration}'),
+                  const SizedBox(width: 16),
+                  Text('Оценка: ${completion.averageRating.toStringAsFixed(1)}'),
+                ],
+              ),
+            ],
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Color(completion.successColorHex),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              completion.successLevel,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-                return Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+  Widget _buildProgressReport(Map<String, dynamic> report) {
+    final areaScores = Map<String, double>.from(report['areaScores'] ?? {});
+    final recommendations = List<String>.from(report['recommendations'] ?? []);
+    
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Общая статистика
+          _buildStatsCard(report),
+          
+          const SizedBox(height: 20),
+          
+          // Прогресс по областям
+          if (areaScores.isNotEmpty) ...[
+            const Text(
+              'Прогресс по областям развития',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            ...areaScores.entries.map((entry) => _buildProgressBar(
+              entry.key,
+              entry.value,
+            )),
+            
+            const SizedBox(height: 20),
+          ],
+          
+          // Рекомендации
+          if (recommendations.isNotEmpty) ...[
+            const Text(
+              'Рекомендации',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            ...recommendations.map((rec) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.lightbulb, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(rec)),
+                ],
+              ),
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsCard(Map<String, dynamic> report) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const Text(
+              'Общая статистика',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    'Активностей',
+                    '${report['recentActivitiesCount'] ?? 0}',
+                    Icons.play_arrow,
+                    Colors.blue,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Активность',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        _buildStatRow('Создано сказок', '${stories.length}'),
-                        _buildStatRow('Выполнено челленджей', '${challenges.length}'),
-                        _buildStatRow(
-                            'Любимых сказок',
-                            '${stories.where((s) => s.isFavorite).length}'
-                        ),
-                      ],
-                    ),
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Завершено',
+                    '${report['completedActivities'] ?? 0}',
+                    Icons.check_circle,
+                    Colors.green,
                   ),
-                );
-              },
-            );
-          },
+                ),
+                Expanded(
+                  child: _buildStatItem(
+                    'Ср. оценка',
+                    (report['averageRating'] ?? 0.0).toStringAsFixed(1),
+                    Icons.star,
+                    Colors.amber,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 32),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildStatRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildProgressBar(String areaName, double score) {
+    final color = _getProgressColor(score);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                areaName,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              Text(
+                '${score.toInt()}%',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 8),
+          
+          LinearProgressIndicator(
+            value: score / 100,
+            backgroundColor: Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 8,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade700,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -719,81 +680,244 @@ class _StatisticsTab extends StatelessWidget {
     );
   }
 
-  String _getStatName(String key) {
-    switch (key) {
-      case 'happiness':
-        return 'Счастье';
-      case 'energy':
-        return 'Энергия';
-      case 'knowledge':
-        return 'Знания';
-      default:
-        return key;
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.psychology,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getProgressColor(double score) {
+    if (score >= 80) return Colors.green;
+    if (score >= 60) return Colors.orange;
+    return Colors.red;
+  }
+
+  void _filterByArea(DevelopmentArea? area) {
+    setState(() {
+      _selectedArea = area;
+    });
+  }
+
+  Future<DevelopmentActivity?> _getActivityById(String activityId) async {
+    try {
+      // Простой поиск активности по ID
+      final allActivities = await FirebaseService.getDevelopmentActivitiesStream().first;
+      return allActivities.firstWhere((a) => a.id == activityId);
+    } catch (e) {
+      return null;
     }
   }
 
-  Color _getStatColor(String key) {
-    switch (key) {
-      case 'happiness':
-        return Colors.pink;
-      case 'energy':
-        return Colors.orange;
-      case 'knowledge':
-        return Colors.blue;
-      default:
-        return Colors.grey;
-    }
+  void _showActivityDetails(DevelopmentActivity activity) {
+    showDialog(
+      context: context,
+      builder: (context) => ActivityDetailDialog(
+        activity: activity,
+        childId: widget.childId,
+        onCompleted: _loadDevelopmentData,
+      ),
+    );
   }
 }
 
-// Вспомогательный виджет для статистики
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
+// Диалог детальной информации об активности
+class ActivityDetailDialog extends StatelessWidget {
+  final DevelopmentActivity activity;
+  final String childId;
+  final VoidCallback onCompleted;
 
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
+  const ActivityDetailDialog({
+    super.key,
+    required this.activity,
+    required this.childId,
+    required this.onCompleted,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 24,
-          ),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 600),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Заголовок
+            Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Color(activity.area.colorHex).withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      activity.area.iconEmoji,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(width: 16),
+                
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        activity.title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        activity.area.displayName,
+                        style: TextStyle(
+                          color: Color(activity.area.colorHex),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Описание
+            Text(
+              activity.description,
+              style: const TextStyle(fontSize: 16),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Метрики
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _buildChip(Icons.timer, activity.formattedDuration, Colors.blue),
+                _buildChip(Icons.child_care, activity.ageRange.displayName, Colors.green),
+                _buildChip(Icons.trending_up, activity.difficulty.displayName, Color(activity.difficulty.colorHex)),
+                if (activity.requiresAdult)
+                  _buildChip(Icons.supervisor_account, 'С взрослым', Colors.orange),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Материалы
+            if (activity.materials.isNotEmpty) ...[
+              const Text(
+                'Материалы:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...activity.materials.map((material) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const Icon(Icons.circle, size: 8, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(material)),
+                  ],
+                ),
+              )),
+              
+              const SizedBox(height: 16),
+            ],
+            
+            // Кнопки действий
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Закрыть'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _startActivity(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(activity.area.colorHex),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Начать'),
+                ),
+              ],
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
+      ),
     );
+  }
+
+  Widget _buildChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w500,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startActivity(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Начинаем активность: ${activity.title}'),
+        backgroundColor: Color(activity.area.colorHex),
+      ),
+    );
+    onCompleted();
   }
 }

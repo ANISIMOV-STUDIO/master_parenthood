@@ -10,6 +10,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'providers/locale_provider.dart';
 import 'providers/auth_provider.dart';
 
+// Сервисы
+import 'services/connectivity_service.dart';
+import 'services/offline_service.dart';
+import 'services/sync_service.dart';
+import 'services/notification_service.dart';
+import 'services/performance_service.dart';
+
 // Экраны
 import 'screens/home_screen.dart';
 import 'screens/child_profile_screen.dart';
@@ -20,7 +27,6 @@ import 'l10n/app_localizations.dart';
 
 // Сервисы
 import 'services/firebase_service.dart';
-import 'services/connectivity_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +44,30 @@ void main() async {
     debugPrint('✅ Firebase initialized successfully with offline support');
   } catch (e) {
     debugPrint('❌ Firebase initialization error: $e');
+  }
+
+  // Инициализация offline сервиса
+  try {
+    await OfflineService.initialize();
+    debugPrint('✅ OfflineService initialized successfully');
+  } catch (e) {
+    debugPrint('❌ OfflineService initialization error: $e');
+  }
+
+  // Инициализация сервиса уведомлений
+  try {
+    await NotificationService.initialize();
+    debugPrint('✅ NotificationService initialized successfully');
+  } catch (e) {
+    debugPrint('❌ NotificationService initialization error: $e');
+  }
+
+  // Инициализация сервиса производительности
+  try {
+    await PerformanceService.initialize();
+    debugPrint('✅ PerformanceService initialized successfully');
+  } catch (e) {
+    debugPrint('❌ PerformanceService initialization error: $e');
   }
 
   // Загружаем сохраненные настройки
@@ -70,8 +100,24 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    
+    // Инициализируем сервис синхронизации
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
+      SyncService.initialize(connectivityService);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
