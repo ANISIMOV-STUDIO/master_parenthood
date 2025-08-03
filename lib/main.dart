@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firebase_options.dart';
 
 // Провайдеры
 import 'providers/locale_provider.dart';
@@ -31,9 +32,11 @@ import 'services/firebase_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Инициализация Firebase
+  // Инициализация Firebase с автоматической конфигурацией
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     
     // Включаем offline поддержку
     FirebaseFirestore.instance.settings = const Settings(

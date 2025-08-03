@@ -4,7 +4,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     // Эту строку нужно было исправить:
-    id("com.google.gms.google-services") version "4.4.3"
+    id("com.google.gms.google-services")
 }
 
 android {
