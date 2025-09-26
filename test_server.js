@@ -386,6 +386,256 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  // 🌍 GLOBAL COMMUNITY & TRANSLATION ENDPOINTS
+
+  else if (url === '/api/translation/translate' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { message, targetLanguage, sourceLanguage } = JSON.parse(body);
+
+        // Mock translation responses
+        const translations = {
+          'Hello': {
+            'es': 'Hola',
+            'fr': 'Bonjour',
+            'de': 'Hallo',
+            'ru': 'Привет',
+            'zh': '你好',
+            'ja': 'こんにちは'
+          },
+          'How are you?': {
+            'es': '¿Cómo estás?',
+            'fr': 'Comment allez-vous?',
+            'de': 'Wie geht es dir?',
+            'ru': 'Как дела?',
+            'zh': '你好吗？',
+            'ja': '元気ですか？'
+          },
+          'Thank you': {
+            'es': 'Gracias',
+            'fr': 'Merci',
+            'de': 'Danke',
+            'ru': 'Спасибо',
+            'zh': '谢谢',
+            'ja': 'ありがとう'
+          }
+        };
+
+        let translatedText = message;
+        let detectedLanguage = sourceLanguage || 'en';
+
+        // Simple translation logic
+        for (const [phrase, translations_map] of Object.entries(translations)) {
+          if (message.toLowerCase().includes(phrase.toLowerCase())) {
+            translatedText = translations_map[targetLanguage] || message;
+            break;
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          originalText: message,
+          translatedText: translatedText,
+          sourceLanguage: detectedLanguage,
+          targetLanguage: targetLanguage,
+          confidence: 0.9,
+          cached: false
+        }));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Неверный формат данных' }));
+      }
+    });
+  }
+
+  else if (url === '/api/community/weekly-topic' && method === 'GET') {
+    const weekNumber = Math.floor((Date.now() / (1000 * 60 * 60 * 24 * 7))) % 52 + 1;
+
+    const topics = [
+      {
+        id: `topic_${weekNumber}`,
+        week: weekNumber,
+        title: 'Культурные колыбельные мира',
+        description: 'Делимся колыбельными из разных культур! Как родители по всему миру укладывают детей спать?',
+        questions: [
+          'Какие колыбельные пели вам ваши родители?',
+          'Есть ли особые ритуалы отхода ко сну в вашей культуре?',
+          'Как вы адаптируете традиционные песни для современности?'
+        ],
+        activities: [
+          'Запишите, как вы поете колыбельную',
+          'Поделитесь смыслом любимой колыбельной',
+          'Выучите колыбельную из другой культуры'
+        ],
+        culturalNote: 'Музыка преодолевает языковые барьеры и объединяет всех родителей.',
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        language: 'ru',
+        isActive: true
+      }
+    ];
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      topic: topics[0]
+    }));
+  }
+
+  else if (url === '/api/community/posts' && method === 'GET') {
+    const mockPosts = [
+      {
+        id: 'post_1',
+        userId: 'user_1',
+        userName: 'Anna from Russia',
+        content: 'Моя дочка любит колыбельную "Спи, моя радость, усни". А какие песни поете вы своим малышам?',
+        originalLanguage: 'ru',
+        topicId: 'topic_1',
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        likes: 5,
+        replies: 3,
+        isTranslated: false,
+        timeAgo: '2h ago'
+      },
+      {
+        id: 'post_2',
+        userId: 'user_2',
+        userName: 'Maria from Spain',
+        content: 'En España cantamos "Duérmete niño" a nuestros bebés. ¡Es muy relajante!',
+        originalLanguage: 'es',
+        topicId: 'topic_1',
+        timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+        likes: 8,
+        replies: 2,
+        isTranslated: true,
+        translatedText: 'В Испании мы поем "Duérmete niño" нашим детям. Это очень расслабляет!',
+        timeAgo: '4h ago'
+      },
+      {
+        id: 'post_3',
+        userId: 'user_3',
+        userName: 'John from USA',
+        content: 'We love singing "Twinkle, Twinkle, Little Star" at bedtime. It\'s a classic!',
+        originalLanguage: 'en',
+        topicId: 'topic_1',
+        timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+        likes: 12,
+        replies: 7,
+        isTranslated: true,
+        translatedText: 'Мы любим петь "Twinkle, Twinkle, Little Star" перед сном. Это классика!',
+        timeAgo: '6h ago'
+      }
+    ];
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      posts: mockPosts
+    }));
+  }
+
+  else if (url === '/api/community/create-post' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { userId, userName, content, userLanguage, topicId } = JSON.parse(body);
+
+        const newPost = {
+          id: `post_${Date.now()}`,
+          userId,
+          userName,
+          content,
+          originalLanguage: userLanguage,
+          topicId,
+          timestamp: new Date().toISOString(),
+          likes: 0,
+          replies: 0,
+          isTranslated: false,
+          timeAgo: 'just now'
+        };
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          post: newPost,
+          message: 'Post created successfully'
+        }));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Неверный формат данных' }));
+      }
+    });
+  }
+
+  else if (url === '/api/community/stats' && method === 'GET') {
+    const stats = {
+      totalPosts: 156,
+      totalUsers: 42,
+      languageDistribution: {
+        'ru': 45,
+        'en': 38,
+        'es': 28,
+        'fr': 22,
+        'de': 15,
+        'zh': 8
+      },
+      topContributors: {
+        'Anna from Russia': 12,
+        'Maria from Spain': 10,
+        'John from USA': 9,
+        'Sophie from France': 8,
+        'Hans from Germany': 6
+      },
+      averagePostsPerWeek: 2.3,
+      mostActiveHours: {
+        9: 15,
+        14: 22,
+        20: 18,
+        21: 25
+      }
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      stats: stats
+    }));
+  }
+
+  else if (url === '/api/translation/detect-language' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { text } = JSON.parse(body);
+
+        // Simple language detection
+        let detectedLanguage = 'en';
+
+        if (/[а-яё]/i.test(text)) detectedLanguage = 'ru';
+        else if (/[ñáéíóú]/i.test(text)) detectedLanguage = 'es';
+        else if (/[àâäéèêëîïôöùûüÿç]/i.test(text)) detectedLanguage = 'fr';
+        else if (/[äöüß]/i.test(text)) detectedLanguage = 'de';
+        else if (/[中文]/.test(text)) detectedLanguage = 'zh';
+        else if (/[ひらがなカタカナ]/.test(text)) detectedLanguage = 'ja';
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          detectedLanguage: detectedLanguage,
+          confidence: 0.85
+        }));
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Неверный формат данных' }));
+      }
+    });
+  }
+
   else {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Endpoint не найден' }));

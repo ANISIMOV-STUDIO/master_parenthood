@@ -29,8 +29,19 @@ import 'l10n/app_localizations.dart';
 // Сервисы
 import 'services/firebase_service.dart';
 
+// Dependency Injection
+import 'core/injection_container.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize dependency injection first
+  try {
+    await initializeDependencies();
+    debugPrint('✅ Dependency injection initialized successfully');
+  } catch (e) {
+    debugPrint('❌ Dependency injection initialization error: $e');
+  }
 
   // Инициализация Firebase с автоматической конфигурацией
   try {
@@ -114,12 +125,19 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    
+
     // Инициализируем сервис синхронизации
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final connectivityService = Provider.of<ConnectivityService>(context, listen: false);
       SyncService.initialize(connectivityService);
     });
+  }
+
+  @override
+  void dispose() {
+    // Proper cleanup when app is disposed
+    disposeDependencies();
+    super.dispose();
   }
 
   @override
