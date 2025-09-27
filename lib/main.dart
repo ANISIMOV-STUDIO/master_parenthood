@@ -1,10 +1,12 @@
 // lib/main.dart
+// 🚀 Master Parenthood - Material 3 Expressive App 2025
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:velocity_x/velocity_x.dart';
 import 'firebase_options.dart';
 
 // Провайдеры
@@ -20,8 +22,13 @@ import 'services/performance_service.dart';
 
 // Экраны
 import 'screens/home_screen.dart';
+import 'screens/modern_home_screen.dart';
 import 'screens/child_profile_screen.dart';
 import 'screens/auth_screen.dart';
+
+// Темы и UI
+import 'core/theme/app_theme.dart';
+import 'core/config/production_config.dart';
 
 // Локализация
 import 'l10n/app_localizations.dart';
@@ -34,6 +41,10 @@ import 'core/injection_container.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Validate production configuration
+  ProductionConfig.validateConfig();
+  EnvironmentConfig.validateEnvironment();
 
   // Initialize dependency injection first
   try {
@@ -150,23 +161,9 @@ class _MyAppState extends State<MyApp> {
       title: 'Master Parenthood',
       debugShowCheckedModeBanner: false,
 
-      // Темы
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.purple,
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.purple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-      ),
+      // Modern Material 3 Expressive Themes
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
       // Локализация
@@ -218,7 +215,7 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = [
-    const HomeScreen(),
+    const ModernHomeScreen(),  // Using new modern design
     const ChildProfileScreen(),
     const AchievementsScreen(),
     const CommunityScreen(),

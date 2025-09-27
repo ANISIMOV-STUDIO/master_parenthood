@@ -17,11 +17,17 @@ dependencies:
   get_it: ^7.6.7
   injectable: ^2.3.2
 
-  # UI/UX
+  # UI/UX - Modern Material 3 & Animations
   flutter_animate: ^4.2.0
   fl_chart: ^0.64.0
   table_calendar: ^3.1.2
   url_launcher: ^6.1.14
+  velocity_x: ^4.1.2              # Modern utility framework
+  flutter_staggered_animations: ^1.1.1  # Beautiful animations
+  shimmer: ^3.0.0                 # Loading states
+  lottie: ^3.1.2                  # Advanced animations
+  flutter_svg: ^2.0.9             # SVG support
+  glassmorphism: ^3.0.0           # Glass effect components
 
   # Storage
   shared_preferences: ^2.2.1
