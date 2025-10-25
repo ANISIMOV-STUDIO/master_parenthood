@@ -109,7 +109,18 @@ class _ModernHomeScreenState extends State<ModernHomeScreen>
     if (_isVoiceListening) {
       // Start voice recognition
       try {
-        await VoiceService.startListening();
+        await VoiceService.startListening(
+          onResult: (result) {
+            debugPrint('Voice recognition result: $result');
+            // Handle voice recognition result here
+          },
+          onError: (error) {
+            debugPrint('Voice recognition error: $error');
+            setState(() {
+              _isVoiceListening = false;
+            });
+          },
+        );
       } catch (e) {
         debugPrint('Voice listening error: $e');
         setState(() {

@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// import 'package:google_sign_in/google_sign_in.dart'; // Disabled for Russian market
 import 'package:intl/intl.dart';
 
 import 'dart:io';
@@ -161,7 +161,10 @@ class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseStorage _storage = FirebaseStorage.instance;
-  static final GoogleSignIn _googleSignIn = GoogleSignIn();
+  // GoogleSignIn disabled for Russian market
+  // static final GoogleSignIn _googleSignIn = GoogleSignIn(
+  //   scopes: ['email'],
+  // );
 
   // ===== АВТОРИЗАЦИЯ =====
 
@@ -229,11 +232,13 @@ class FirebaseService {
     }
   }
 
-  // Вход через Google
+  // Вход через Google - DISABLED FOR RUSSIAN MARKET
   static Future<User?> signInWithGoogle() async {
+    throw UnsupportedError('Google Sign In is not available for Russian market');
+    /* ORIGINAL CODE - DISABLED
     try {
       // Запускаем процесс входа через Google
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signInSilently() ?? await _googleSignIn.signIn();
 
       if (googleUser == null) {
         return null; // Пользователь отменил вход
@@ -269,6 +274,7 @@ class FirebaseService {
       }
       throw Exception('Ошибка входа через Google');
     }
+    */
   }
 
 
@@ -284,7 +290,8 @@ class FirebaseService {
 
   // Выход
   static Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    // GoogleSignIn disabled for Russian market
+    // await _googleSignIn.signOut();
 
     await _auth.signOut();
   }

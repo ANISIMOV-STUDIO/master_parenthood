@@ -116,7 +116,7 @@ class AppTheme {
       ),
 
       // 📄 Card Theme - Soft and welcoming
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.1),
         shape: RoundedRectangleBorder(
@@ -145,7 +145,7 @@ class AppTheme {
       ),
 
       // 🔔 Dialog Theme - Warm and engaging
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         elevation: 8,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -184,7 +184,7 @@ class AppTheme {
       ),
 
       // 📱 Tab Bar Theme
-      tabBarTheme: TabBarTheme(
+      tabBarTheme: TabBarThemeData(
         labelColor: primaryColor,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
         indicator: UnderlineTabIndicator(
@@ -265,7 +265,7 @@ class AppTheme {
         ),
       ),
 
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.3),
         shape: RoundedRectangleBorder(

@@ -6,16 +6,16 @@ import 'package:flutter/material.dart';
 class ConnectivityService extends ChangeNotifier {
   final Connectivity _connectivity = Connectivity();
   
-  ConnectivityResult _connectionStatus = ConnectivityResult.none;
-  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
-  
-  ConnectivityResult get connectionStatus => _connectionStatus;
-  
-  bool get isOnline => _connectionStatus != ConnectivityResult.none;
-  
-  bool get isOffline => _connectionStatus == ConnectivityResult.none;
-  
-  bool get hasInternet => _connectionStatus != ConnectivityResult.none;
+  List<ConnectivityResult> _connectionStatus = [ConnectivityResult.none];
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
+
+  List<ConnectivityResult> get connectionStatus => _connectionStatus;
+
+  bool get isOnline => !_connectionStatus.contains(ConnectivityResult.none) || _connectionStatus.length > 1;
+
+  bool get isOffline => _connectionStatus.contains(ConnectivityResult.none) && _connectionStatus.length == 1;
+
+  bool get hasInternet => !_connectionStatus.contains(ConnectivityResult.none) || _connectionStatus.length > 1;
   
   ConnectivityService() {
     _initConnectivity();
@@ -35,7 +35,7 @@ class ConnectivityService extends ChangeNotifier {
     notifyListeners();
   }
   
-  void _updateConnectionStatus(ConnectivityResult result) {
+  void _updateConnectionStatus(List<ConnectivityResult> result) {
     _connectionStatus = result;
     notifyListeners();
   }

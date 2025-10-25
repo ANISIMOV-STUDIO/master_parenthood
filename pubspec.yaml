@@ -52,7 +52,7 @@ dependencies:
   cached_network_image: ^3.3.1
   image_picker: ^1.0.7
   share_plus: ^7.2.1
-  connectivity_plus: ^5.0.2
+  connectivity_plus: ^7.0.0
 
   # Notifications & Local scheduling
   flutter_local_notifications: ^17.2.2
@@ -60,7 +60,7 @@ dependencies:
   workmanager: ^0.5.2
 
   # Voice & Speech
-  speech_to_text: ^6.6.2
+  speech_to_text: ^7.3.0
   flutter_tts: ^4.0.2
   permission_handler: ^11.3.1
 

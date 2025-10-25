@@ -62,7 +62,8 @@ class GlobalCommunityService {
       final postId = 'post_${DateTime.now().millisecondsSinceEpoch}';
 
       // Detect language if not specified
-      final detectedLanguage = await TranslationService.detectLanguage(content);
+      // TODO: Re-enable translation service after fixing dependency injection
+      final detectedLanguage = userLanguage; // await TranslationService.detectLanguage(content);
 
       final post = {
         'id': postId,
@@ -128,14 +129,18 @@ class GlobalCommunityService {
             isTranslated = true;
           } else {
             // Perform translation
-            final translation = await TranslationService.translateMessage(
-              message: originalContent,
-              targetLanguage: userLanguage,
-              sourceLanguage: originalLanguage,
-            );
+            // TODO: Re-enable translation service after fixing dependency injection
+            // final translation = await TranslationService.translateMessage(
+            //   message: originalContent,
+            //   targetLanguage: userLanguage,
+            //   sourceLanguage: originalLanguage,
+            // );
+            // translatedContent = translation['translatedText'];
+            // isTranslated = translation['originalText'] != translation['translatedText'];
 
-            translatedContent = translation['translatedText'];
-            isTranslated = translation['originalText'] != translation['translatedText'];
+            // Temporary: use original content without translation
+            translatedContent = originalContent;
+            isTranslated = false;
 
             // Cache translation in post
             post['translations'][userLanguage] = translatedContent;
@@ -261,12 +266,16 @@ class GlobalCommunityService {
       if (languages != null) {
         for (String language in languages) {
           if (language != userLanguage) {
-            final translation = await TranslationService.translateMessage(
-              message: query,
-              targetLanguage: language,
-              sourceLanguage: userLanguage,
-            );
-            translatedQueries[language] = translation['translatedText'];
+            // TODO: Re-enable translation service after fixing dependency injection
+            // final translation = await TranslationService.translateMessage(
+            //   message: query,
+            //   targetLanguage: language,
+            //   sourceLanguage: userLanguage,
+            // );
+            // translatedQueries[language] = translation['translatedText'];
+
+            // Temporary: use original query without translation
+            translatedQueries[language] = query;
           }
         }
       }
@@ -310,25 +319,25 @@ class GlobalCommunityService {
       };
 
       // Calculate language distribution
+      final langDist = stats['languageDistribution'] as Map<String, int>;
       for (final post in posts) {
         final lang = post['originalLanguage'] as String;
-        stats['languageDistribution'][lang] =
-            (stats['languageDistribution'][lang] ?? 0) + 1;
+        langDist[lang] = (langDist[lang] ?? 0) + 1;
       }
 
       // Calculate top contributors
+      final topContrib = stats['topContributors'] as Map<String, int>;
       for (final post in posts) {
         final userName = post['userName'] as String;
-        stats['topContributors'][userName] =
-            (stats['topContributors'][userName] ?? 0) + 1;
+        topContrib[userName] = (topContrib[userName] ?? 0) + 1;
       }
 
       // Calculate activity by hour
+      final activeHours = stats['mostActiveHours'] as Map<int, int>;
       for (final post in posts) {
         final timestamp = DateTime.parse(post['timestamp']);
         final hour = timestamp.hour;
-        stats['mostActiveHours'][hour] =
-            (stats['mostActiveHours'][hour] ?? 0) + 1;
+        activeHours[hour] = (activeHours[hour] ?? 0) + 1;
       }
 
       return stats;
@@ -503,12 +512,12 @@ class GlobalCommunityService {
     return start.add(const Duration(days: 6));
   }
 
-  static Future<String?> _getCachedWeeklyTopic(String cacheKey) async {
+  static Future<Map<String, dynamic>?> _getCachedWeeklyTopic(String cacheKey) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedJson = prefs.getString(cacheKey);
       if (cachedJson != null) {
-        return cachedJson;
+        return json.decode(cachedJson) as Map<String, dynamic>;
       }
       return null;
     } catch (e) {

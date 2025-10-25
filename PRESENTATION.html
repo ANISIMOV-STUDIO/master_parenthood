@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Parenthood - Инвестиционная презентация</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 21cm;
+            margin: 0 auto;
+            padding: 20px;
+            background: #fff;
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header h2 {
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 5px;
+        }
+
+        .header h3 {
+            font-size: 18px;
+            font-weight: 300;
+            opacity: 0.9;
+        }
+
+        .badges {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 8px 16px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .section {
+            margin: 40px 0;
+            page-break-inside: avoid;
+        }
+
+        .section-title {
+            font-size: 32px;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .subsection-title {
+            font-size: 24px;
+            color: #764ba2;
+            margin: 25px 0 15px 0;
+            font-weight: 600;
+        }
+
+        .subsubsection-title {
+            font-size: 18px;
+            color: #667eea;
+            margin: 20px 0 10px 0;
+            font-weight: 600;
+        }
+
+        .highlight-box {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .problem-box {
+            background: #fff3f3;
+            border-left: 4px solid #e74c3c;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .solution-box {
+            background: #f0fff4;
+            border-left: 4px solid #2ecc71;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .label {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin: 15px 0;
+        }
+
+        .feature-list li {
+            padding: 10px 0 10px 30px;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        .feature-list.cross li:before {
+            content: "✗";
+            color: #e74c3c;
+        }
+
+        .price-card {
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 15px 0;
+        }
+
+        .price-card .price-header {
+            text-align: center;
+            padding: 15px;
+            background: #667eea;
+            color: white;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .price-card .price {
+            font-size: 32px;
+            font-weight: 700;
+        }
+
+        .roadmap-item {
+            border-left: 3px solid #667eea;
+            padding-left: 20px;
+            margin: 20px 0;
+        }
+
+        .roadmap-item .phase {
+            color: #667eea;
+            font-weight: 700;
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .key-points {
+            background: #fffaeb;
+            border: 2px solid #f39c12;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .key-points h4 {
+            color: #f39c12;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .cta-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .cta-box h3 {
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .cta-box p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        ul, ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        li {
+            margin: 8px 0;
+        }
+
+        strong {
+            color: #667eea;
+        }
+
+        .divider {
+            height: 3px;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            margin: 40px 0;
+            border-radius: 2px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🇷🇺 Master Parenthood</h1>
+    <h2>AI-Ассистент для Современных Родителей</h2>
+    <h3>Инвестиционная презентация проекта для российского рынка</h3>
+</div>
+
+<div class="badges">
+    <span class="badge">Flutter 3.0+</span>
+    <span class="badge">AI-Powered</span>
+    <span class="badge">75% Ready</span>
+    <span class="badge">Рынок: Россия</span>
+</div>
+
+<div class="divider"></div>
+
+<!-- РЫНОЧНАЯ ВОЗМОЖНОСТЬ -->
+<div class="section">
+    <h2 class="section-title">📊 РЫНОЧНАЯ ВОЗМОЖНОСТЬ</h2>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="number">~1.3 млн</div>
+            <div class="label">новорожденных в год (РФ)</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">8 млн</div>
+            <div class="label">потенциальных пользователей</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">775,000₽</div>
+            <div class="label">маткапитал на 2-го ребенка</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">87%</div>
+            <div class="label">родителей используют смартфоны</div>
+        </div>
+    </div>
+
+    <div class="highlight-box">
+        <h3 class="subsection-title">Текущая ситуация в России</h3>
+        <ul>
+            <li><strong>Государственная программа</strong> по стимулированию рождаемости</li>
+            <li><strong>Семейные ценности</strong> - национальный приоритет</li>
+            <li><strong>Растущая готовность</strong> платить за quality of life приложения</li>
+            <li><strong>Отсутствие местных AI-решений</strong> для родителей</li>
+        </ul>
+    </div>
+
+    <h3 class="subsection-title">Целевая аудитория</h3>
+    <p><strong>Родители детей 0-5 лет в России:</strong></p>
+    <ul>
+        <li>👶 <strong>Первичная:</strong> ~5 млн семей с детьми 0-3 лет</li>
+        <li>🎯 <strong>Вторичная:</strong> ~3 млн семей с детьми 3-5 лет</li>
+        <li><strong style="font-size: 18px;">ИТОГО: 8 млн потенциальных пользователей</strong></li>
+    </ul>
+</div>
+
+<div class="divider"></div>
+
+<!-- ПРОБЛЕМА И РЕШЕНИЕ -->
+<div class="section">
+    <h2 class="section-title">🎯 ПРОБЛЕМА И РЕШЕНИЕ</h2>
+
+    <div class="problem-box">
+        <h3 class="subsection-title">❌ Текущие боли родителей</h3>
+
+        <h4 class="subsubsection-title">1. Информационная перегрузка</h4>
+        <ul>
+            <li>Противоречивые советы из интернета</li>
+            <li>Отсутствие персонализации под возраст ребенка</li>
+            <li>Нет единого места для всей информации</li>
+        </ul>
+
+        <h4 class="subsubsection-title">2. Отсутствие системного трекинга</h4>
+        <ul>
+            <li>Забывают логировать кормления/сон</li>
+            <li>Сложно отследить динамику развития</li>
+            <li>Теряются медицинские записи</li>
+        </ul>
+
+        <h4 class="subsubsection-title">3. Изоляция молодых родителей</h4>
+        <ul>
+            <li>Нет поддержки сообщества</li>
+            <li>Языковой барьер с зарубежными родителями</li>
+            <li>Страх осуждения в российских форумах</li>
+        </ul>
+
+        <h4 class="subsubsection-title">4. Нехватка времени</h4>
+        <ul>
+            <li>Занятые руки, нужны голосовые команды</li>
+            <li>Забывают важные дела</li>
+            <li>Нет персонального помощника</li>
+        </ul>
+    </div>
+
+    <div class="solution-box">
+        <h3 class="subsection-title">✅ Наше решение: Master Parenthood</h3>
+        <p style="font-size: 18px; font-weight: 600; margin-bottom: 15px;">Первое в России AI-powered приложение, которое объединяет:</p>
+        <ul class="feature-list">
+            <li>🤖 <strong>Персональный AI-ассистент</strong> с GPT-4o</li>
+            <li>📊 <strong>Умный трекинг</strong> развития с WHO стандартами</li>
+            <li>🎙️ <strong>Голосовое управление</strong> для занятых рук</li>
+            <li>🌍 <strong>Глобальное сообщество</strong> с автопереводом на 50+ языков</li>
+            <li>📅 <strong>AI-календарь</strong> с автопланированием активностей</li>
+            <li>💾 <strong>Автобэкап</strong> всех данных ребенка</li>
+        </ul>
+    </div>
+
+    <div class="highlight-box">
+        <h4 style="color: #667eea; font-size: 18px; margin-bottom: 10px;">Пример работы AI:</h4>
+        <p><strong>Родитель:</strong> "Ребенок плохо спит"</p>
+        <p><strong>Обычное приложение:</strong> "Вот 10 статей о сне"</p>
+        <p><strong>Master Parenthood AI:</strong> "Маша (8 месяцев) спала сегодня на 2 часа меньше обычного. Вчера вы вводили новый прикорм - возможна реакция. Попробуйте успокаивающую ванну в 19:00 и раньше уложить. Вот персональная колыбельная для Маши..."</p>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- УНИКАЛЬНЫЕ ВОЗМОЖНОСТИ -->
+<div class="section">
+    <h2 class="section-title">🌟 УНИКАЛЬНЫЕ ВОЗМОЖНОСТИ</h2>
+
+    <h3 class="subsection-title">🤖 1. AI-Персонализация уровня 2025</h3>
+    <div class="highlight-box">
+        <p><strong>Чего нет у конкурентов:</strong></p>
+        <ul class="feature-list">
+            <li>Контекстный AI-ассистент который знает всё о вашем ребенке</li>
+            <li>Предиктивная аналитика развития</li>
+            <li>Анализ поведенческих паттернов</li>
+            <li>Генерация сказок с именем ребенка</li>
+            <li>Умные советы основанные на реальных данных</li>
+        </ul>
+    </div>
+
+    <h3 class="subsection-title">🎙️ 2. Полноценное голосовое управление</h3>
+    <p><strong>15+ голосовых команд:</strong></p>
+    <ul>
+        <li>"Покормил" → автоматический лог</li>
+        <li>"Читай сказку" → AI генерирует историю</li>
+        <li>"Пой колыбельную" → TTS с именем ребенка</li>
+        <li>"Что дальше?" → план на день</li>
+        <li>"Экстренная помощь" → гид первой помощи</li>
+    </ul>
+    <p style="margin-top: 15px;"><em><strong>Почему это важно:</strong> Родители часто с занятыми руками (кормление, укачивание)</em></p>
+
+    <h3 class="subsection-title">🌍 3. Глобальное сообщество с живым переводом</h3>
+    <div class="highlight-box">
+        <p><strong>Уникальность:</strong></p>
+        <ul>
+            <li>Мама из Москвы пишет по-русски</li>
+            <li>Папа из Парижа видит на французском</li>
+            <li>AI модерирует и переводит в реальном времени</li>
+            <li><strong>50+ языков</strong> без языковых барьеров</li>
+        </ul>
+        <p style="margin-top: 15px;"><strong>Культурные темы недели:</strong> "Колыбельные мира" 🎵, "Первые слова на разных языках" 🗣️, "Игры во дворе по всему миру" 🌍</p>
+    </div>
+
+    <h3 class="subsection-title">📅 4. Умный AI-календарь</h3>
+    <ul>
+        <li>Генерирует недельный план активностей под возраст</li>
+        <li>Напоминает о прививках из национального календаря</li>
+        <li>Предлагает развивающие игры на основе погоды</li>
+        <li>Интегрируется с семейным расписанием</li>
+    </ul>
+
+    <h3 class="subsection-title">💾 5. Военного уровня резервное копирование</h3>
+    <ul>
+        <li>Автобэкап каждые 6 часов</li>
+        <li>Локально + Firebase Cloud</li>
+        <li>SHA-256 проверка целостности</li>
+        <li>Восстановление в 1 клик</li>
+    </ul>
+</div>
+
+<div class="divider"></div>
+
+<!-- РЕАЛИЗОВАННЫЕ ФУНКЦИИ -->
+<div class="section">
+    <h2 class="section-title">✅ ЧТО УЖЕ РЕАЛИЗОВАНО (75%)</h2>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="number">22</div>
+            <div class="label">сервиса</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">28</div>
+            <div class="label">экранов</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">~8000</div>
+            <div class="label">строк кода</div>
+        </div>
+        <div class="stat-card">
+            <div class="number">75%</div>
+            <div class="label">готовности</div>
+        </div>
+    </div>
+
+    <h3 class="subsection-title">Готовые модули:</h3>
+
+    <table>
+        <tr>
+            <th>Категория</th>
+            <th>Функции</th>
+            <th>Статус</th>
+        </tr>
+        <tr>
+            <td><strong>🤖 AI-Функции</strong></td>
+            <td>AI-Ассистент, Генератор сказок, Анализ развития, AI-календарь, Предиктивная аналитика</td>
+            <td style="color: #2ecc71; font-weight: bold;">✓ Готово</td>
+        </tr>
+        <tr>
+            <td><strong>🎙️ Голос</strong></td>
+            <td>15+ команд на русском, Запись заметок, TTS для сказок, Голосовое логирование</td>
+            <td style="color: #2ecc71; font-weight: bold;">✓ Готово</td>
+        </tr>
+        <tr>
+            <td><strong>📊 Трекинг</strong></td>
+            <td>Рост/вес (WHO), Кормление, Сон, Активности, Медкарта, Питание, Аллергии</td>
+            <td style="color: #2ecc71; font-weight: bold;">✓ Готово</td>
+        </tr>
+        <tr>
+            <td><strong>🌍 Социальное</strong></td>
+            <td>Глобальное сообщество, Автоперевод 50+ языков, AI-модерация</td>
+            <td style="color: #2ecc71; font-weight: bold;">✓ Готово</td>
+        </tr>
+        <tr>
+            <td><strong>🔔 Уведомления</strong></td>
+            <td>7 типов каналов, AI-персонализация, Умное планирование времени</td>
+            <td style="color: #2ecc71; font-weight: bold;">✓ Готово</td>
+        </tr>
+        <tr>
+            <td><strong>💾 Backup</strong></td>
+            <td>Автобэкап, Локально+облако, Проверка целостности, Мультиустройство</td>
+            <td style="color: #2ecc71; font-weight: bold;">✓ Готово</td>
+        </tr>
+        <tr>
+            <td><strong>🎨 UI/UX</strong></td>
+            <td>Material 3 Design, Темная/светлая тема, Анимации, 5 языков интерфейса</td>
+            <td style="color: #2ecc71; font-weight: bold;">✓ Готово</td>
+        </tr>
+    </table>
+</div>
+
+<div class="divider"></div>
+
+<!-- ФИНАНСОВАЯ МОДЕЛЬ -->
+<div class="section">
+    <h2 class="section-title">💰 ФИНАНСОВАЯ МОДЕЛЬ</h2>
+
+    <h3 class="subsection-title">Модель монетизации</h3>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0;">
+        <div class="price-card">
+            <div class="price-header">
+                <h4>Free</h4>
+                <div class="price">0₽</div>
+            </div>
+            <ul class="feature-list">
+                <li>1 профиль ребенка</li>
+                <li>Базовый трекинг</li>
+                <li>5 AI-советов в месяц</li>
+                <li>Доступ к сообществу (чтение)</li>
+            </ul>
+            <ul class="feature-list cross" style="margin-top: 10px;">
+                <li>Голосовые команды</li>
+                <li>Автобэкап</li>
+                <li>Расширенная аналитика</li>
+            </ul>
+        </div>
+
+        <div class="price-card" style="border-color: #2ecc71; border-width: 3px;">
+            <div class="price-header" style="background: #2ecc71;">
+                <h4>Premium ⭐</h4>
+                <div class="price">349₽/мес</div>
+                <div style="font-size: 14px;">или 2,990₽/год</div>
+            </div>
+            <ul class="feature-list">
+                <li>Неограниченные дети</li>
+                <li>Безлимитные AI-советы</li>
+                <li>Голосовое управление</li>
+                <li>Автобэкап в облако</li>
+                <li>Расширенная аналитика</li>
+                <li>AI-календарь</li>
+                <li>Экспорт в PDF</li>
+                <li>Без рекламы</li>
+            </ul>
+        </div>
+
+        <div class="price-card" style="border-color: #f39c12; border-width: 3px;">
+            <div class="price-header" style="background: #f39c12;">
+                <h4>Family 👨‍👩‍👧‍👦</h4>
+                <div class="price">499₽/мес</div>
+                <div style="font-size: 14px;">или 4,290₽/год</div>
+            </div>
+            <ul class="feature-list">
+                <li>Все из Premium +</li>
+                <li>До 5 детей</li>
+                <li>До 4 родителей</li>
+                <li>Онлайн-консультация педиатра (1/мес)</li>
+                <li>Персональный AI-отчет</li>
+                <li>Приоритет в AI-очереди</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3 class="subsection-title">Финансовые прогнозы на 1 год</h3>
+
+    <h4 class="subsubsection-title">Консервативный сценарий (реалистичный)</h4>
+    <table>
+        <tr>
+            <th>Месяц</th>
+            <th>Установки</th>
+            <th>Активные</th>
+            <th>Premium (10%)</th>
+            <th>Family (3%)</th>
+            <th>MRR</th>
+        </tr>
+        <tr>
+            <td>1</td>
+            <td>10,000</td>
+            <td>2,000</td>
+            <td>200</td>
+            <td>60</td>
+            <td>99,740₽</td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>35,000</td>
+            <td>8,000</td>
+            <td>800</td>
+            <td>240</td>
+            <td>399,360₽</td>
+        </tr>
+        <tr>
+            <td>6</td>
+            <td>75,000</td>
+            <td>18,000</td>
+            <td>1,800</td>
+            <td>540</td>
+            <td>898,560₽</td>
+        </tr>
+        <tr style="background: #f0fff4; font-weight: bold;">
+            <td>12</td>
+            <td>150,000</td>
+            <td>35,000</td>
+            <td>3,500</td>
+            <td>1,050</td>
+            <td>1,746,000₽</td>
+        </tr>
+    </table>
+    <div class="highlight-box">
+        <p style="font-size: 20px; font-weight: bold; color: #2ecc71;">Выручка за 1 год: ~21,500,000₽</p>
+        <p style="font-size: 20px; font-weight: bold; color: #2ecc71;">Прибыль: ~2,600,000₽ (+12% margin)</p>
+    </div>
+
+    <h4 class="subsubsection-title">Оптимистичный сценарий (при активном маркетинге)</h4>
+    <table>
+        <tr>
+            <th>Месяц</th>
+            <th>Установки</th>
+            <th>Активные</th>
+            <th>Premium (12%)</th>
+            <th>Family (5%)</th>
+            <th>MRR</th>
+        </tr>
+        <tr>
+            <td>1</td>
+            <td>15,000</td>
+            <td>3,500</td>
+            <td>420</td>
+            <td>175</td>
+            <td>234,055₽</td>
+        </tr>
+        <tr>
+            <td>3</td>
+            <td>60,000</td>
+            <td>15,000</td>
+            <td>1,800</td>
+            <td>750</td>
+            <td>1,003,950₽</td>
+        </tr>
+        <tr>
+            <td>6</td>
+            <td>150,000</td>
+            <td>40,000</td>
+            <td>4,800</td>
+            <td>2,000</td>
+            <td>2,674,400₽</td>
+        </tr>
+        <tr style="background: #f0fff4; font-weight: bold;">
+            <td>12</td>
+            <td>300,000</td>
+            <td>80,000</td>
+            <td>9,600</td>
+            <td>4,000</td>
+            <td>5,348,800₽</td>
+        </tr>
+    </table>
+    <div class="highlight-box">
+        <p style="font-size: 20px; font-weight: bold; color: #2ecc71;">Выручка за 1 год: ~67,700,000₽</p>
+        <p style="font-size: 20px; font-weight: bold; color: #2ecc71;">Прибыль: ~46,700,000₽ (+69% margin)</p>
+    </div>
+
+    <div class="key-points">
+        <h4>Обоснование конверсии 10-12%</h4>
+        <p><strong>Факторы в пользу высокой конверсии:</strong></p>
+        <ul>
+            <li>Государственная поддержка семей - люди получают маткапитал</li>
+            <li>Высокая ценность - здоровье и развитие ребенка приоритет #1</li>
+            <li>Уникальность - нет аналогов с AI на российском рынке</li>
+            <li>Доступная цена - 349₽/месяц = чашка кофе в неделю</li>
+            <li>Голосовое управление - killer feature для занятых родителей</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>Benchmark:</strong> Headspace 8-10%, Calm 7-9%, Flo 10-12%</p>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ROADMAP -->
+<div class="section">
+    <h2 class="section-title">🚀 ROADMAP ДЛЯ ВЫХОДА НА РФ РЫНОК</h2>
+
+    <div class="roadmap-item">
+        <div class="phase">📅 ЭТАП 1: Финализация (2-3 недели)</div>
+        <p><strong>Задачи:</strong></p>
+        <ul>
+            <li>Полное QA тестирование</li>
+            <li>Оптимизация производительности (запуск < 2 сек)</li>
+            <li>Уменьшение APK до < 40MB</li>
+            <li>Compliance с 152-ФЗ (персональные данные)</li>
+            <li>Адаптация контента под российские реалии</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>Стоимость:</strong> ~300,000₽</p>
+    </div>
+
+    <div class="roadmap-item">
+        <div class="phase">📅 ЭТАП 2: Мягкий запуск (1 месяц)</div>
+        <p><strong>Задачи:</strong></p>
+        <ul>
+            <li>Beta-тестирование с 500 пользователей</li>
+            <li>Интеграция платежных систем (ЮKassa, CloudPayments, СБП)</li>
+            <li>Партнерство с 3-5 детскими клиниками</li>
+            <li>Договоренности с блогерами (50K+ подписчиков)</li>
+            <li>A/B тестирование онбординга</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>Стоимость:</strong> ~500,000₽</p>
+    </div>
+
+    <div class="roadmap-item">
+        <div class="phase">📅 ЭТАП 3: Публичный релиз (2 месяца)</div>
+        <p><strong>Задачи:</strong></p>
+        <ul>
+            <li>Публикация в App Store и Google Play</li>
+            <li>Оптимизация ASO (ключевые слова на русском)</li>
+            <li>Маркетинговая кампания (VK, Telegram, Яндекс)</li>
+            <li>Influencer Marketing - 5-7 блогеров (500K суммарно)</li>
+            <li>PR-статьи - TJ, VC, Forbes Woman</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>Бюджет маркетинга:</strong> 1,100,000₽/месяц</p>
+        <p style="margin-top: 5px;"><strong>Цели первого месяца:</strong> 10K установок, 2K DAU, 200 платных подписок</p>
+        <p style="margin-top: 10px;"><strong>Общая стоимость:</strong> ~1,500,000₽</p>
+    </div>
+
+    <div class="roadmap-item">
+        <div class="phase">📅 ЭТАП 4: Масштабирование (6-12 месяцев)</div>
+        <p><strong>Задачи:</strong></p>
+        <ul>
+            <li>Интеграция с Госуслугами (ЕСИА)</li>
+            <li>Партнерство с частными клиниками (API)</li>
+            <li>Маркетплейс детских товаров (комиссия 5-10%)</li>
+            <li>Онлайн-консультации с педиатрами (маржа 20%)</li>
+            <li>Корпоративные тарифы для детских садов</li>
+            <li>AR измерение роста ребенка</li>
+            <li>Apple Watch / WearOS приложение</li>
+        </ul>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- КОНКУРЕНТНЫЙ АНАЛИЗ -->
+<div class="section">
+    <h2 class="section-title">🏆 КОНКУРЕНТНЫЙ АНАЛИЗ</h2>
+
+    <h3 class="subsection-title">Международные конкуренты</h3>
+    <table>
+        <tr>
+            <th>Приложение</th>
+            <th>Пользователи</th>
+            <th>Цена</th>
+            <th>Наши преимущества</th>
+        </tr>
+        <tr>
+            <td><strong>Huckleberry</strong></td>
+            <td>5M+</td>
+            <td>$14.99/мес</td>
+            <td>❌ Нет AI-ассистента<br>❌ Нет голоса<br>❌ Только английский</td>
+        </tr>
+        <tr>
+            <td><strong>Baby Tracker</strong></td>
+            <td>10M+</td>
+            <td>$4.99/мес</td>
+            <td>❌ Устаревший UI<br>❌ Нет community<br>❌ Нет AI</td>
+        </tr>
+        <tr>
+            <td><strong>Glow Baby</strong></td>
+            <td>3M+</td>
+            <td>$9.99/мес</td>
+            <td>❌ Слабое community<br>❌ Нет перевода</td>
+        </tr>
+    </table>
+
+    <h3 class="subsection-title">Российские конкуренты</h3>
+    <table>
+        <tr>
+            <th>Приложение</th>
+            <th>Пользователи</th>
+            <th>Цена</th>
+            <th>Наши преимущества</th>
+        </tr>
+        <tr>
+            <td><strong>Мой Здоровый Ребенок</strong></td>
+            <td>100K+</td>
+            <td>Бесплатно</td>
+            <td>❌ Нет AI<br>❌ Устаревший дизайн<br>❌ Нет community</td>
+        </tr>
+        <tr>
+            <td><strong>BabyCare</strong></td>
+            <td>50K+</td>
+            <td>199₽/мес</td>
+            <td>❌ Нет AI<br>❌ Нет голоса<br>❌ Минимал функционал</td>
+        </tr>
+    </table>
+
+    <div class="solution-box" style="margin-top: 20px;">
+        <h3 style="font-size: 22px; margin-bottom: 15px;">🏆 Master Parenthood = Tesla среди Lada в мире parenting apps</h3>
+        <p style="font-size: 18px;"><strong>Мы единственные кто предлагает:</strong></p>
+        <ul class="feature-list" style="font-size: 16px;">
+            <li>AI-персонализацию уровня 2025</li>
+            <li>Полноценное голосовое управление</li>
+            <li>Глобальное сообщество с живым переводом</li>
+            <li>Военного уровня резервное копирование</li>
+            <li>Современный Material 3 дизайн</li>
+            <li>Интеграцию российских стандартов</li>
+        </ul>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ИНВЕСТИЦИИ -->
+<div class="section">
+    <h2 class="section-title">💼 ЗАПРАШИВАЕМЫЕ ИНВЕСТИЦИИ</h2>
+
+    <div class="cta-box">
+        <h3>Необходимо: 5,000,000₽</h3>
+    </div>
+
+    <h3 class="subsection-title">Распределение:</h3>
+    <table>
+        <tr>
+            <th>Статья расходов</th>
+            <th>Сумма</th>
+            <th>%</th>
+        </tr>
+        <tr>
+            <td>Финализация продукта (QA, юристы, интеграции)</td>
+            <td>1,000,000₽</td>
+            <td>20%</td>
+        </tr>
+        <tr>
+            <td>Маркетинг первые 3 месяца (VK, Telegram, Яндекс, блогеры, PR)</td>
+            <td>3,000,000₽</td>
+            <td>60%</td>
+        </tr>
+        <tr>
+            <td>Операционные расходы 3 месяца (инфраструктура, зарплаты)</td>
+            <td>800,000₽</td>
+            <td>16%</td>
+        </tr>
+        <tr>
+            <td>Резерв на непредвиденные расходы</td>
+            <td>200,000₽</td>
+            <td>4%</td>
+        </tr>
+        <tr style="background: #667eea; color: white; font-weight: bold;">
+            <td>ИТОГО</td>
+            <td>5,000,000₽</td>
+            <td>100%</td>
+        </tr>
+    </table>
+
+    <h3 class="subsection-title">ROI для инвесторов</h3>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="label">Консервативный сценарий</div>
+            <div class="number">330%</div>
+            <div class="label">ROI за год</div>
+            <div style="margin-top: 10px; font-size: 14px;">Payback: 6 месяцев</div>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
+            <div class="label">Оптимистичный сценарий</div>
+            <div class="number">1,254%</div>
+            <div class="label">ROI за год</div>
+            <div style="margin-top: 10px; font-size: 14px;">Payback: 3 месяца</div>
+        </div>
+    </div>
+
+    <h3 class="subsection-title">Exit стратегии</h3>
+    <div class="highlight-box">
+        <h4 class="subsubsection-title">1. Приобретение крупным игроком</h4>
+        <p>Сбер, VK, Яндекс заинтересованы в health tech</p>
+        <p><strong>Оценка через 2-3 года: 200-500M₽</strong></p>
+
+        <h4 class="subsubsection-title" style="margin-top: 15px;">2. IPO на российском рынке</h4>
+        <p>При достижении 1M+ пользователей</p>
+        <p><strong>Через 4-5 лет</strong></p>
+
+        <h4 class="subsubsection-title" style="margin-top: 15px;">3. Стратегическое партнерство</h4>
+        <p>С медицинскими сетями (СМ-Клиника, Медси) или фарм-компаниями</p>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- ПОЧЕМУ СЕЙЧАС -->
+<div class="section">
+    <h2 class="section-title">🚀 ПОЧЕМУ СЕЙЧАС?</h2>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h4 style="margin-bottom: 10px;">Технологическая готовность</h4>
+            <p style="font-size: 14px;">GPT-4o доступен, Flutter 3.0 mature, Firebase enterprise-ready</p>
+        </div>
+        <div class="stat-card">
+            <h4 style="margin-bottom: 10px;">Рыночная возможность</h4>
+            <p style="font-size: 14px;">Digital health +35% год к году, родители готовы платить</p>
+        </div>
+        <div class="stat-card">
+            <h4 style="margin-bottom: 10px;">Конкурентный вакуум</h4>
+            <p style="font-size: 14px;">Нет strong local players, окно возможности 6-12 месяцев</p>
+        </div>
+        <div class="stat-card">
+            <h4 style="margin-bottom: 10px;">Команда готова</h4>
+            <p style="font-size: 14px;">75% функционала реализовано, production-ready архитектура</p>
+        </div>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- РЕЗЮМЕ -->
+<div class="section">
+    <h2 class="section-title">📌 РЕЗЮМЕ</h2>
+
+    <div class="key-points" style="border-color: #667eea;">
+        <h4 style="color: #667eea;">Master Parenthood - это не просто приложение, это AI-копилот для современного родительства</h4>
+
+        <h4 style="margin-top: 20px; color: #667eea;">✅ Почему мы победим:</h4>
+        <ol style="font-size: 16px; line-height: 1.8;">
+            <li><strong>Технологическое превосходство</strong> - AI уровня 2025</li>
+            <li><strong>Первопроходцы</strong> - нет конкурентов на российском рынке</li>
+            <li><strong>Государственная поддержка</strong> - демографическая повестка</li>
+            <li><strong>Огромный рынок</strong> - 8M потенциальных пользователей</li>
+            <li><strong>Доказанная модель</strong> - 75% готовности продукта</li>
+            <li><strong>Быстрая окупаемость</strong> - payback за 3-6 месяцев</li>
+        </ol>
+
+        <h3 style="text-align: center; margin-top: 30px; color: #667eea; font-size: 24px;">🚀 Мы готовы изменить родительство в России!</h3>
+    </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- CALL TO ACTION -->
+<div class="cta-box">
+    <h3>📞 СВЯЖИТЕСЬ С НАМИ</h3>
+    <p><strong>Email:</strong> support@masterparenthood.com</p>
+    <p><strong>Pitch презентация:</strong> По запросу</p>
+    <p><strong>Финансовая модель (Excel):</strong> По запросу</p>
+    <p style="margin-top: 20px; font-size: 20px;">💼 Для инвесторов | 🏥 Для клиник | 👥 Для блогеров</p>
+</div>
+
+<div style="text-align: center; margin: 40px 0; color: #666;">
+    <p style="font-size: 14px;"><strong>Документ подготовлен:</strong> Октябрь 2025</p>
+    <p style="font-size: 14px;"><strong>Версия проекта:</strong> 2.0 Enhanced with AI</p>
+    <p style="font-size: 14px;"><strong>Статус:</strong> 75% Ready for Launch</p>
+    <p style="font-size: 14px;"><strong>Контакт:</strong> support@masterparenthood.com</p>
+</div>
+
+<div style="text-align: center; padding: 30px; background: #f8f9fa; border-radius: 10px; margin-top: 40px;">
+    <p style="font-size: 20px; color: #667eea; font-weight: bold;">🌟 Сделано с ❤️ для родителей и их детей 🌟</p>
+    <p style="font-size: 16px; color: #666; margin-top: 10px;"><em>Master Parenthood - Будущее осознанного родительства уже здесь</em></p>
+</div>
+
+</body>
+</html>

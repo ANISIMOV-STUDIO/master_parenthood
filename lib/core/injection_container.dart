@@ -71,11 +71,7 @@ Future<void> initializeDependencies() async {
 
   // 👥 Global community service with dependency injection
   sl.registerLazySingleton<GlobalCommunityService>(
-    () => GlobalCommunityService(
-      httpClient: sl<Dio>(),
-      translationService: sl<TranslationService>(),
-      cacheService: sl<CacheService>(),
-    ),
+    () => GlobalCommunityService(),
   );
 
   // 🔔 Enhanced notification service
@@ -90,10 +86,7 @@ Future<void> initializeDependencies() async {
 
   // 📅 Smart calendar service
   sl.registerLazySingleton<SmartCalendarService>(
-    () => SmartCalendarService(
-      httpClient: sl<Dio>(),
-      cacheService: sl<CacheService>(),
-    ),
+    () => SmartCalendarService(),
   );
 
   // 💾 Backup service
@@ -107,34 +100,12 @@ Future<void> disposeDependencies() async {
   try {
     // Close HTTP clients gracefully
     if (sl.isRegistered<Dio>()) {
-      await sl<Dio>().close(force: true);
+      sl<Dio>().close(force: true);
     }
 
     // Dispose services safely
-    if (sl.isRegistered<TranslationService>()) {
-      sl<TranslationService>().dispose();
-    }
-    if (sl.isRegistered<AdvancedAIService>()) {
-      sl<AdvancedAIService>().dispose();
-    }
-    if (sl.isRegistered<GlobalCommunityService>()) {
-      sl<GlobalCommunityService>().dispose();
-    }
-    if (sl.isRegistered<CacheService>()) {
-      sl<CacheService>().dispose();
-    }
-    if (sl.isRegistered<EnhancedNotificationService>()) {
-      sl<EnhancedNotificationService>().dispose();
-    }
-    if (sl.isRegistered<VoiceService>()) {
-      sl<VoiceService>().dispose();
-    }
-    if (sl.isRegistered<SmartCalendarService>()) {
-      sl<SmartCalendarService>().dispose();
-    }
-    if (sl.isRegistered<BackupService>()) {
-      sl<BackupService>().dispose();
-    }
+    // Note: Only dispose services that have dispose methods
+    // Most services are singletons and will be cleaned up on app close
 
     // Reset GetIt completely
     await sl.reset();

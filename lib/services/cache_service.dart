@@ -3,6 +3,11 @@ import 'firebase_service.dart';
 
 /// Сервис кэширования для оптимизации производительности
 class CacheService {
+  // Singleton pattern
+  static final CacheService _instance = CacheService._internal();
+  factory CacheService() => _instance;
+  CacheService._internal();
+
   static final Map<String, dynamic> _cache = {};
   static final Map<String, DateTime> _cacheTimestamps = {};
   static const Duration _cacheTimeout = Duration(minutes: 5);
@@ -47,8 +52,8 @@ class CacheService {
     _userProfileTimestamp = DateTime.now();
   }
 
-  /// Универсальный метод кэширования
-  static T? get<T>(String key) {
+  /// Универсальный метод кэширования (статический, для обратной совместимости)
+  static T? getSync<T>(String key) {
     final timestamp = _cacheTimestamps[key];
     if (timestamp != null && DateTime.now().difference(timestamp) < _cacheTimeout) {
       return _cache[key] as T?;
@@ -56,8 +61,23 @@ class CacheService {
     return null;
   }
 
-  /// Универсальное сохранение в кэш
-  static void set<T>(String key, T value) {
+  /// Универсальное сохранение в кэш (статическое, для обратной совместимости)
+  static void setSync<T>(String key, T value, {Duration? duration}) {
+    _cache[key] = value;
+    _cacheTimestamps[key] = DateTime.now();
+  }
+
+  /// Асинхронный метод получения из кэша (instance method)
+  Future<T?> get<T>(String key) async {
+    final timestamp = _cacheTimestamps[key];
+    if (timestamp != null && DateTime.now().difference(timestamp) < _cacheTimeout) {
+      return _cache[key] as T?;
+    }
+    return null;
+  }
+
+  /// Асинхронное сохранение в кэш (instance method)
+  Future<void> set<T>(String key, T value, {Duration? duration}) async {
     _cache[key] = value;
     _cacheTimestamps[key] = DateTime.now();
   }
@@ -88,22 +108,22 @@ class CacheService {
 
   /// Получить кэшированную историю
   static String? getCachedStory(String prompt) {
-    return get<String>('story_$prompt');
+    return getSync<String>('story_$prompt');
   }
 
   /// Сохранить историю в кэш
   static void cacheStory(String prompt, String story) {
-    set<String>('story_$prompt', story);
+    setSync<String>('story_$prompt', story);
   }
 
   /// Получить кэшированный совет
   static String? getCachedAdvice(String question) {
-    return get<String>('advice_$question');
+    return getSync<String>('advice_$question');
   }
 
   /// Сохранить совет в кэш
   static void cacheAdvice(String question, String advice) {
-    set<String>('advice_$question', advice);
+    setSync<String>('advice_$question', advice);
   }
 
   /// Очистить AI кэш

@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -246,7 +247,7 @@ class VoiceService {
       await _saveVoiceNote(voiceNoteData);
 
       debugPrint('🎙️ Voice note recorded: $noteId');
-      return voiceNoteData['text'];
+      return voiceNoteData['text'] as String?;
     } catch (e) {
       debugPrint('Error recording voice note: $e');
       return null;

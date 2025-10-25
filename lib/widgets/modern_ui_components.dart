@@ -1,6 +1,7 @@
 // lib/widgets/modern_ui_components.dart
 // 🎨 Modern UI Components Library - Material 3 Expressive Design
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../core/theme/app_theme.dart';
@@ -678,9 +679,6 @@ class WavePainter extends CustomPainter {
            oldDelegate.animation2 != animation2;
   }
 }
-
-// Import math for wave calculations
-import 'dart:math' as math;
 
 // 🎯 Modern Stats Card
 class ModernStatsCard extends StatelessWidget {

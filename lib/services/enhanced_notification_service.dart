@@ -101,65 +101,65 @@ class EnhancedNotificationService {
   static Future<void> _createEnhancedNotificationChannels() async {
     final channels = [
       // High priority channels
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         milestoneChannel,
         'Milestone Celebrations',
         description: 'Important development milestones and achievements',
         importance: Importance.high,
-        sound: RawResourceAndroidNotificationSound('celebration'),
+        sound: const RawResourceAndroidNotificationSound('celebration'),
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 300, 100, 300]),
       ),
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         healthChannel,
         'Health & Medical',
         description: 'Vaccination reminders and health checkups',
         importance: Importance.high,
-        sound: RawResourceAndroidNotificationSound('medical_alert'),
+        sound: const RawResourceAndroidNotificationSound('medical_alert'),
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 500, 100, 500]),
       ),
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         emergencyChannel,
         'Emergency Alerts',
         description: 'Critical health and safety alerts',
         importance: Importance.max,
-        sound: RawResourceAndroidNotificationSound('emergency'),
+        sound: const RawResourceAndroidNotificationSound('emergency'),
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 1000, 200, 1000, 200, 1000]),
       ),
 
       // Medium priority channels
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         feedingChannel,
         'Feeding Schedule',
         description: 'Meal times and feeding reminders',
         importance: Importance.defaultImportance,
-        sound: RawResourceAndroidNotificationSound('feeding_bell'),
+        sound: const RawResourceAndroidNotificationSound('feeding_bell'),
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 200, 100, 200]),
       ),
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         sleepChannel,
         'Sleep & Bedtime',
         description: 'Bedtime routines and sleep schedule',
         importance: Importance.defaultImportance,
-        sound: RawResourceAndroidNotificationSound('lullaby'),
+        sound: const RawResourceAndroidNotificationSound('lullaby'),
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 150, 50, 150]),
       ),
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         aiInsightsChannel,
         'AI Parenting Insights',
         description: 'Personalized tips and recommendations',
         importance: Importance.defaultImportance,
-        sound: RawResourceAndroidNotificationSound('gentle_chime'),
+        sound: const RawResourceAndroidNotificationSound('gentle_chime'),
         enableVibration: true,
         vibrationPattern: Int64List.fromList([0, 100]),
       ),
 
       // Low priority channels
-      const AndroidNotificationChannel(
+      AndroidNotificationChannel(
         communityChannel,
         'Community Updates',
         description: 'Global parenting community and discussions',
@@ -474,8 +474,8 @@ class EnhancedNotificationService {
     ];
 
     await sendEnhancedNotification(
-      title: insights['title'],
-      body: insights['body'],
+      title: (insights['title'] as String?) ?? 'AI Insights',
+      body: (insights['body'] as String?) ?? 'New insights available',
       channel: aiInsightsChannel,
       data: {
         'insights': insights,

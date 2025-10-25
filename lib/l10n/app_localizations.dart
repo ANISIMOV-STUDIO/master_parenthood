@@ -12,6 +12,9 @@ class AppLocalizations {
 
   static const LocalizationsDelegate<AppLocalizations> delegate = _AppLocalizationsDelegate();
 
+  // Get locale name (language code)
+  String get localeName => locale.languageCode;
+
   // Переводы
   static final Map<String, Map<String, String>> _localizedValues = {
     'en': {
